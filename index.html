@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cinematic Three.js Dance Scene</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #050505;
+        }
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+        }
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-family: monospace;
+            pointer-events: none;
+            background: rgba(0,0,0,0.5);
+            padding: 8px;
+            border-radius: 4px;
+        }
+    </style>
+    <!-- Three.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+    <div id="info">Frame: <span id="frame-num">0</span> | Shot: <span id="shot-name">Initializing</span></div>
+    <div id="canvas-container"></div>
+
+    <script>
+        // --- CONSTANTS & TIMING (125 BPM) ---
+        const FPS = 30;
+        const TOTAL_FRAMES = 1350; // 45 seconds
+        const BPM = 125;
+        const BEAT_DURATION = 60 / BPM; // 0.48s
+        const BAR_DURATION = BEAT_DURATION * 4; // 1.92s
+        const FRAMES_PER_BAR = BAR_DURATION * FPS; // 57.6 frames
+
+        // --- GLOBAL THREE.JS VARIABLES ---
+        let scene, camera, renderer;
+        let her, him; // Character structures
+        let keyLight, fillLight, rimLight;
+        let currentFrame = 0;
+
+        // --- TRACKING FOR CAMERA DRIFT ---
+        let internalClock = 0;
+
+        // --- INITIALIZATION ---
+        init();
+        animate();
+
+        function init() {
+            const container = document.getElementById('canvas-container');
+
+            // Scene setup
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x050505);
+            scene.fog = new THREE.FogExp2(0x050505, 0.05);
+
+            // Camera setup
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+            
+            // Renderer setup
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.shadowMap.enabled = true;
+            container.appendChild(renderer.domElement);
+
+            // Environment / Floor
+            const gridHelper = new THREE.GridHelper(40, 40, 0x444444, 0x222222);
+            gridHelper.position.y = -0.01;
+            scene.add(gridHelper);
+
+            const floorGeo = new THREE.PlaneGeometry(50, 50);
+            const floorMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.8 });
+            const floor = new THREE.Mesh(floorGeo, floorMat);
+            floor.rotation.x = -Math.PI / 2;
+            floor.receiveShadow = true;
+            scene.add(floor);
+
+            // Lighting System
+            keyLight = new THREE.DirectionalLight(0xffffff, 1.2);
+            keyLight.position.set(5, 8, 5);
+            keyLight.castShadow = true;
+            scene.add(keyLight);
+
+            fillLight = new THREE.AmbientLight(0x111122, 0.6);
+            scene.add(fillLight);
+
+            rimLight = new THREE.DirectionalLight(0xaa99ff, 0.8);
+            rimLight.position.set(-5, 4, -5);
+            scene.add(rimLight);
+
+            // --- BUILD RIGGED STICKMAN CHARACTERS ---
+            her = createStickman(0xff4488, new THREE.Vector3(-3, 0, 0));
+            him = createStickman(0x4488ff, new THREE.Vector3(3, 0, 0));
+
+            window.addEventListener('resize', onWindowResize, false);
+        }
+
+        function createStickman(colorHex, startPos) {
+            const group = new THREE.Group();
+            group.position.copy(startPos);
+
+            const material = new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.5 });
+            
+            // Head
+            const headGeo = new THREE.SphereGeometry(0.18, 16, 16);
+            const head = new THREE.Mesh(headGeo, material);
+            head.position.y = 1.8;
+            head.castShadow = true;
+            group.add(head);
+
+            // Spine / Torso
+            const spineGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.6);
+            const spine = new THREE.Mesh(spineGeo, material);
+            spine.position.y = 1.2;
+            spine.castShadow = true;
+            group.add(spine);
+
+            // Limbs helper
+            function makeLimb() {
+                const limbGroup = new THREE.Group();
+                const segment = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.4), material);
+                segment.position.y = -0.2;
+                segment.castShadow = true;
+                limbGroup.add(segment);
+                return limbGroup;
+            }
+
+            // Arms
+            const leftArm = makeLimb(); leftArm.position.set(-0.2, 1.4, 0);
+            const rightArm = makeLimb(); rightArm.position.set(0.2, 1.4, 0);
+            group.add(leftArm, rightArm);
+
+            // Legs
+            const leftLeg = makeLimb(); leftLeg.position.set(-0.12, 0.9, 0);
+            const rightLeg = makeLimb(); rightLeg.position.set(0.12, 0.9, 0);
+            group.add(leftLeg, rightLeg);
+
+            scene.add(group);
+
+            return {
+                root: group,
+                head: head,
+                spine: spine,
+                leftArm: leftArm,
+                rightArm: rightArm,
+                leftLeg: leftLeg,
+                rightLeg: rightLeg
+            };
+        }
+
+        // --- EASING AND CAMERA UTILITIES ---
+        function smoothstep(t) {
+            return t * t * (3 - 2 * t);
+        }
+
+        function cubicInOut(t) {
+            return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+        }
+
+        function applyHandheldDrift(time, amplitude = 0.035) {
+            const driftX = Math.sin(time * 2.5) * Math.cos(time * 0.9) * amplitude;
+            const driftY = Math.cos(time * 1.8) * Math.sin(time * 1.3) * amplitude;
+            const driftZ = Math.sin(time * 1.1) * amplitude * 0.5;
+            
+            camera.position.x += driftX;
+            camera.position.y += driftY;
+            camera.position.z += driftZ;
+        }
+
+        function cutToShot(cam, pos, lookAtPos, fov = 45, fogDensity = 0.05) {
+            cam.position.copy(pos);
+            cam.lookAt(lookAtPos);
+            cam.fov = fov;
+            cam.updateProjectionMatrix();
+            scene.fog.density = fogDensity;
+        }
+
+        // --- REFACTORED SHOT BEHAVIORS ---
+
+        function shotEstablishing(t) {
+            document.getElementById('shot-name').innerText = "Establishing Shot (Smooth Tracking)";
+            
+            // Linear progress transformed into a sleek slow-in, slow-out cubic blend
+            const easeT = cubicInOut(t);
+            
+            const startPos = new THREE.Vector3(0, 4, 12);
+            const endPos = new THREE.Vector3(-2, 2.5, 7);
+            camera.position.lerpVectors(startPos, endPos, easeT);
+            
+            const startLook = new THREE.Vector3(0, 1, 0);
+            const endLook = new THREE.Vector3(0, 0.9, 0);
+            const currentLook = new THREE.Vector3().lerpVectors(startLook, endLook, easeT);
+            camera.lookAt(currentLook);
+            
+            applyHandheldDrift(internalClock, 0.02);
+        }
+
+        function shotFreeze(t) {
+            document.getElementById('shot-name').innerText = "Reaction Cut (Tight Close-Up)";
+            
+            const herHeadWorld = new THREE.Vector3();
+            her.head.getWorldPosition(herHeadWorld);
+            
+            // Hard Cut boundary instantly snaps here at frame 230 (Aligned to nearest bar)
+            const shotPos = new THREE.Vector3(herHeadWorld.x + 0.3, herHeadWorld.y + 0.05, herHeadWorld.z + 0.9);
+            const lookTarget = new THREE.Vector3(herHeadWorld.x, herHeadWorld.y, herHeadWorld.z);
+            
+            // Deep close-up with a narrow field of view and simulated shallow focus via thick ambient fog
+            cutToShot(camera, shotPos, lookTarget, 26, 0.18);
+            applyHandheldDrift(internalClock, 0.015);
+        }
+
+        function shotApproach(t) {
+            document.getElementById('shot-name').innerText = "The Approach (Low-Angle Tracking)";
+            
+            const easeT = smoothstep(t);
+            const startPos = new THREE.Vector3(-4, 0.6, 5);
+            const endPos = new THREE.Vector3(0, 0.8, 3.5);
+            camera.position.lerpVectors(startPos, endPos, easeT);
+            
+            const herPos = new THREE.Vector3(); her.root.getWorldPosition(herPos);
+            const himPos = new THREE.Vector3(); him.root.getWorldPosition(himPos);
+            const midpoint = new THREE.Vector3().addVectors(herPos, himPos).multiplyScalar(0.5);
+            midpoint.y = 1.0;
+            
+            camera.lookAt(midpoint);
+            applyHandheldDrift(internalClock, 0.04);
+        }
+
+        function shotFirstTouch(t) {
+            document.getElementById('shot-name').innerText = "First Touch (Hard Cut Insert)";
+            
+            const herHand = new THREE.Vector3(); her.rightArm.getWorldPosition(herHand);
+            const himHand = new THREE.Vector3(); him.leftArm.getWorldPosition(himHand);
+            const handContactPoint = new THREE.Vector3().addVectors(herHand, himHand).multiplyScalar(0.5);
+            
+            // Hard Cut snaps perfectly on the drop
+            const shotPos = new THREE.Vector3(handContactPoint.x, handContactPoint.y + 0.1, handContactPoint.z + 1.1);
+            cutToShot(camera, shotPos, handContactPoint, 32, 0.08);
+            applyHandheldDrift(internalClock, 0.01);
+        }
+
+        function shotOrbitDance(t) {
+            document.getElementById('shot-name').innerText = "The Dance (Dynamic Slow-In/Out Orbit)";
+            
+            const herPos = new THREE.Vector3(); her.root.getWorldPosition(herPos);
+            const himPos = new THREE.Vector3(); him.root.getWorldPosition(himPos);
+            const danceCenter = new THREE.Vector3().addVectors(herPos, himPos).multiplyScalar(0.5);
+            danceCenter.y = 1.2;
+
+            // Non-uniform speed adjustment using sinusoidal waves to create continuous cinematic acceleration
+            const baseRadius = 4.5;
+            const speedMod = smoothstep(t) * (Math.PI * 1.5); 
+            const angle = (Math.PI * 0.25) + speedMod;
+            
+            const height = 1.5 + Math.sin(t * Math.PI) * 0.6;
+            
+            camera.position.set(
+                danceCenter.x + Math.sin(angle) * baseRadius,
+                danceCenter.y + height,
+                danceCenter.z + Math.cos(angle) * baseRadius
+            );
+            
+            camera.lookAt(danceCenter);
+            applyHandheldDrift(internalClock, 0.03);
+        }
+
+        function shotPreDipCloseUp(t) {
+            document.getElementById('shot-name').innerText = "Climax Setup (Close Two-Shot)";
+            
+            const herHead = new THREE.Vector3(); her.head.getWorldPosition(herHead);
+            const himHead = new THREE.Vector3(); him.head.getWorldPosition(himHead);
+            const faceMidpoint = new THREE.Vector3().addVectors(herHead, himHead).multiplyScalar(0.5);
+            
+            // Hard cut punch right before the dip movement
+            const shotPos = new THREE.Vector3(faceMidpoint.x - 0.2, faceMidpoint.y, faceMidpoint.z + 1.0);
+            
+            cutToShot(camera, shotPos, faceMidpoint, 27, 0.15);
+            applyHandheldDrift(internalClock, 0.012);
+        }
+
+        function shotTheDip(t) {
+            document.getElementById('shot-name').innerText = "The Peak Dip (Sweeping Low Wide)";
+            
+            const easeT = cubicInOut(t);
+            const startPos = new THREE.Vector3(2.5, 0.4, 3.0);
+            const endPos = new THREE.Vector3(-1.5, 0.8, 4.0);
+            camera.position.lerpVectors(startPos, endPos, easeT);
+            
+            const herPos = new THREE.Vector3(); her.root.getWorldPosition(herPos);
+            const himPos = new THREE.Vector3(); him.root.getWorldPosition(himPos);
+            const dynamicCenter = new THREE.Vector3().addVectors(herPos, himPos).multiplyScalar(0.5);
+            dynamicCenter.y = 0.8;
+            
+            camera.lookAt(dynamicCenter);
+            applyHandheldDrift(internalClock, 0.05);
+        }
+
+        function shotFinalHold(t) {
+            document.getElementById('shot-name').innerText = "Resolution (Final Intimate Hold)";
+            
+            const herHead = new THREE.Vector3(); her.head.getWorldPosition(herHead);
+            const himHead = new THREE.Vector3(); him.head.getWorldPosition(himHead);
+            const intimateCenter = new THREE.Vector3().addVectors(herHead, himHead).multiplyScalar(0.5);
+            
+            const shotPos = new THREE.Vector3(intimateCenter.x, intimateCenter.y + 0.1, intimateCenter.z + 0.95);
+            
+            cutToShot(camera, shotPos, intimateCenter, 25, 0.2);
+            applyHandheldDrift(internalClock, 0.008);
+        }
+
+        // --- MAIN RENDER LOOP & RIG ANIMATION PRESERVATION ---
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // Core frame logic execution
+            renderFrame(currentFrame);
+            
+            renderer.render(scene, camera);
+            
+            currentFrame++;
+            internalClock += 1 / FPS;
+            
+            if (currentFrame >= TOTAL_FRAMES) {
+                currentFrame = 0;
+                internalClock = 0;
+            }
+            document.getElementById('frame-num').innerText = currentFrame;
+        }
+
+        function renderFrame(frame) {
+            // --- PRESERVED CHARACTER RIG ANIMATIONS (DO NOT ALTER LOGIC METRICS) ---
+            // Simulating continuous baseline animation states for our stickmen assets
+            const time = frame / FPS;
+            
+            // Idle movements
+            if (frame < 230) {
+                her.root.position.x = -3 + Math.sin(time * 2) * 0.05;
+                him.root.position.x = 3 + Math.cos(time * 1.5) * 0.05;
+                
+                // Subtle limb swaying
+                her.leftArm.rotation.z = Math.sin(time) * 0.1;
+                him.rightArm.rotation.z = -Math.sin(time) * 0.1;
+            } 
+            // The Walking Phase
+            else if (frame >= 230 && frame < 460) {
+                const walkProgress = (frame - 230) / (460 - 230);
+                her.root.position.x = THREE.MathUtils.lerp(-3, -0.6, walkProgress);
+                him.root.position.x = THREE.MathUtils.lerp(3, 0.6, walkProgress);
+                
+                // Alternating walk cycle rotation emulation
+                her.leftLeg.rotation.x = Math.sin(time * 10) * 0.4;
+                her.rightLeg.rotation.x = -Math.sin(time * 10) * 0.4;
+                him.leftLeg.rotation.x = -Math.sin(time * 10) * 0.4;
+                him.rightLeg.rotation.x = Math.sin(time * 10) * 0.4;
+            } 
+            // Dancing Climax Sequences
+            else if (frame >= 460 && frame < 980) {
+                // Partnered interaction movements
+                her.root.position.set(-0.6 + Math.sin(time * 3) * 0.2, 0, Math.cos(time * 3) * 0.2);
+                him.root.position.set(0.6 + Math.sin(time * 3) * 0.2, 0, Math.cos(time * 3) * 0.2);
+                
+                her.rightArm.rotation.x = -Math.PI / 3 + Math.sin(time * 5) * 0.2;
+                him.leftArm.rotation.x = -Math.PI / 3 + Math.sin(time * 5) * 0.2;
+            } 
+            // Emotional Peak Dip
+            else if (frame >= 980 && frame < 1150) {
+                const dipProgress = (frame - 980) / (1150 - 980);
+                const dipAngle = Math.sin(dipProgress * Math.PI) * 0.5;
+                
+                her.root.rotation.z = dipAngle;
+                her.root.position.y = -Math.sin(dipProgress * Math.PI) * 0.3;
+                
+                him.root.position.x = 0.4;
+                him.leftArm.rotation.z = -Math.PI / 4;
+            } 
+            // Final Hold Rest
+            else {
+                her.root.rotation.z = 0;
+                her.root.position.set(-0.4, 0, 0);
+                him.root.position.set(0.4, 0, 0);
+                
+                her.leftArm.rotation.set(0,0,0);
+                him.rightArm.rotation.set(0,0,0);
+            }
+
+            // --- PROFESSIONAL CAMERA SYSTEM UPGRADE LOGIC ---
+            // Segmented story tracking mapped precisely across explicit frame intervals
+            if (frame < 230) {
+                // Beat 1: Establishing tracking sequence
+                const tShot = frame / 230;
+                shotEstablishing(tShot);
+            } 
+            else if (frame >= 230 && frame < 345) {
+                // Beat 2: Hard cut close-up freeze when she registers his presence (Frame 230 = Multiples of 1.92s Bar marks)
+                const tShot = (frame - 230) / (345 - 230);
+                shotFreeze(tShot);
+            } 
+            else if (frame >= 345 && frame < 460) {
+                // Beat 3: Smooth track along approach vector
+                const tShot = (frame - 345) / (460 - 345);
+                shotApproach(tShot);
+            } 
+            else if (frame >= 460 && frame < 576) {
+                // Beat 4: Hard cut insert tracking hand touch (Frame 460 ~ nearest clean musical sequence transition drop)
+                const tShot = (frame - 460) / (576 - 460);
+                shotFirstTouch(tShot);
+            } 
+            else if (frame >= 576 && frame < 920) {
+                // Beat 5: Dynamic orbiting tracking shots through development
+                const tShot = (frame - 576) / (920 - 576);
+                shotOrbitDance(tShot);
+            } 
+            else if (frame >= 920 && frame < 980) {
+                // Beat 6: Emotional tension close up right before action drop
+                const tShot = (frame - 920) / (980 - 920);
+                shotPreDipCloseUp(tShot);
+            } 
+            else if (frame >= 980 && frame < 1150) {
+                // Beat 7: Sweeping low tracking perspective spanning the actual dip execution
+                const tShot = (frame - 980) / (1150 - 980);
+                shotTheDip(tShot);
+            } 
+            else {
+                // Beat 8: Final ultra-tight intimate frame hold sequence
+                const tShot = (frame - 1150) / (1350 - 1150);
+                shotFinalHold(tShot);
+            }
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+    </script>
+</body>
+</html>
