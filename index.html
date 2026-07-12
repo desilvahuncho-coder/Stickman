@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Waffles Trend - Precision Rebuild</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #faba26;
+        }
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="stage"></canvas>
+
+    <script>
+        const canvas = document.getElementById('stage');
+        const ctx = canvas.getContext('2d');
+
+        function resize() {
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = window.innerWidth * dpr;
+            canvas.height = window.innerHeight * dpr;
+            ctx.scale(dpr, dpr);
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        let lastTime = 0;
+        let time = 0;
+
+        function animate(timestamp) {
+            if (!lastTime) lastTime = timestamp;
+            let dt = (timestamp - lastTime) / 1000;
+            lastTime = timestamp;
+            time += dt;
+
+            // Clean background
+            ctx.fillStyle = '#faba26';
+            ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+
+            const cx = window.innerWidth / 2;
+            const cy = window.innerHeight * 0.42; 
+            const baseScale = Math.min(window.innerWidth / 375, window.innerHeight / 812) * 1.15;
+
+            // Rhythmic trend dance dynamics (Sway & Bounce)
+            const sway = Math.sin(time * 3.2) * 6;
+            const bounce = Math.abs(Math.sin(time * 3.2)) * 4.5;
+
+            ctx.save();
+            ctx.translate(cx + sway, cy + bounce);
+            ctx.scale(baseScale, baseScale);
+
+            // COLOR SPECS
+            const skinColor = '#cf987c';
+            const hairColor = '#141416';
+
+            // --- 1. FLOOR REFLECTION SHADOW ---
+            ctx.save();
+            ctx.translate(0, 252);
+            ctx.scale(1, -0.2);
+            ctx.globalAlpha = 0.15;
+            let floorGlow = ctx.createRadialGradient(0, 0, 5, 0, 0, 90);
+            floorGlow.addColorStop(0, 'rgba(0,0,0,0.6)');
+            floorGlow.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = floorGlow;
+            ctx.beginPath(); ctx.ellipse(0, 0, 85, 35, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.restore();
+
+            // --- 2. EXTRA-BAGGY STACKED SWEATPANTS ---
+            let pantsGrad = ctx.createLinearGradient(-60, 40, 60, 250);
+            pantsGrad.addColorStop(0, '#e2e2e9'); 
+            pantsGrad.addColorStop(0.5, '#c2c2c9');
+            pantsGrad.addColorStop(1, '#9b9ba4'); 
+            ctx.fillStyle = pantsGrad;
+            
+            ctx.beginPath();
+            ctx.moveTo(-12, 38);
+            // Deep flares mimicking the reference model drape perfectly
+            ctx.bezierCurveTo(-22, 40, -78, 110, -74, 205);
+            ctx.bezierCurveTo(-72, 238, -60, 246, -42, 254); // Stacked folds outer left
+            ctx.lineTo(-14, 254);                          // Stacked folds inner left
+            ctx.bezierCurveTo(-18, 220, -8, 132, -3, 104);  // Crotch drop curve
+            ctx.lineTo(3, 104);
+            ctx.bezierCurveTo(8, 132, 18, 220, 24, 254);
+            ctx.lineTo(42, 254);
+            ctx.bezierCurveTo(60, 246, 72, 238, 74, 205);
+            ctx.bezierCurveTo(78, 110, 22, 40, 12, 38);
+            ctx.closePath();
+            ctx.fill();
+
+            // 3D Shadow Folds inside the fabric
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.07)';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(-45, 140); ctx.bezierCurveTo(-55, 185, -52, 220, -32, 248);
+            ctx.moveTo(45, 140); ctx.bezierCurveTo(55, 185, 52, 220, 32, 248);
+            ctx.stroke();
+
+            // Drawstrings
+            ctx.strokeStyle = '#83838a';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(-2, 48); ctx.lineTo(-2, 60);
+            ctx.moveTo(2, 48); ctx.lineTo(2, 60);
+            ctx.stroke();
+
+            // Chunky Rounded Sneakers
+            ctx.fillStyle = '#fcfcfd';
+            ctx.beginPath(); ctx.arc(-28, 254, 13.5, 0, Math.PI, false); ctx.fill();
+            ctx.beginPath(); ctx.arc(28, 254, 13.5, 0, Math.PI, false); ctx.fill();
+
+
+            // --- 3. CONTOURED SLIM CROP TOP ---
+            let topGrad = ctx.createLinearGradient(-25, -55, 25, 42);
+            topGrad.addColorStop(0, '#564342'); 
+            topGrad.addColorStop(0.5, '#423332');
+            topGrad.addColorStop(1, '#2c2120'); 
+            ctx.fillStyle = topGrad;
+            ctx.beginPath();
+            ctx.moveTo(-24, -55);
+            ctx.bezierCurveTo(-12, -54, 12, -54, 24, -55);
+            ctx.bezierCurveTo(22, -15, 18, 15, 12, 42); 
+            ctx.lineTo(-12, 42);
+            ctx.bezierCurveTo(-18, 15, -22, -15, -24, -55);
+            ctx.closePath();
+            ctx.fill();
+
+
+            // --- 4. SKIN NECK & CHIN SHADOW LAYERING ---
+            ctx.fillStyle = skinColor;
+            ctx.fillRect(-7, -80, 14, 28);
+
+            let neckShadow = ctx.createLinearGradient(0, -80, 0, -64);
+            neckShadow.addColorStop(0, 'rgba(25, 10, 5, 0.48)');
+            neckShadow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            ctx.fillStyle = neckShadow;
+            ctx.fillRect(-7, -80, 14, 18);
+
+
+            // --- 5. SILVER LOCKET CHAIN ---
+            ctx.strokeStyle = '#cbd5e1'; 
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.arc(0, -56, 13, 0, Math.PI, false);
+            ctx.stroke();
+            ctx.fillStyle = '#f8fafc';
+            ctx.beginPath(); ctx.arc(0, -42, 3, 0, Math.PI * 2); ctx.fill();
+
+
+            // --- 6. OVERLAPPING CROSSED ARMS TRACKS ---
+            ctx.save();
+            ctx.shadowColor = 'rgba(15, 5, 5, 0.35)';
+            ctx.shadowBlur = 6;
+            ctx.shadowOffsetY = 3;
+
+            // Left Arm Underlayer (Pushes slightly outside torso border for realism)
+            ctx.fillStyle = '#3a2e2d';
+            ctx.beginPath();
+            ctx.moveTo(-23, -53);
+            ctx.bezierCurveTo(-39, -25, -24, 7, 3, 5);
+            ctx.bezierCurveTo(3, -6, -8, -10, -18, -17);
+            ctx.bezierCurveTo(-20, -27, -19, -40, -23, -53);
+            ctx.closePath(); ctx.fill();
+
+            // Right Arm Overlayer (Crosses visibly on top over the chest)
+            let rightArmGrad = ctx.createLinearGradient(24, -53, -10, 10);
+            rightArmGrad.addColorStop(0, '#544241');
+            rightArmGrad.addColorStop(1, '#2c2120');
+            ctx.fillStyle = rightArmGrad;
+            ctx.beginPath();
+            ctx.moveTo(24, -53);
+            ctx.bezierCurveTo(38, -25, 26, 11, -5, 9);
+            ctx.bezierCurveTo(-18, 7, -14, -16, 2, -18);
+            ctx.bezierCurveTo(11, -24, 16, -40, 24, -53);
+            ctx.closePath(); ctx.fill();
+
+            ctx.restore(); // Clear drop shadow matrix
+
+            // Emo Fingerless Black Gloves
+            ctx.fillStyle = '#202023';
+            ctx.beginPath(); ctx.arc(-3, 4, 7, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(5, -11, 7.5, 0, Math.PI*2); ctx.fill();
+            // Exposed fingers peeking out
+            ctx.fillStyle = skinColor;
+            ctx.beginPath(); ctx.arc(-1, 8, 3, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(7, -7, 3.2, 0, Math.PI*2); ctx.fill();
+
+
+            // --- 7. PERFECT OVAL FACE STRUCTURE & GLASSES ---
+            let headGrad = ctx.createRadialGradient(0, -114, 8, 0, -114, 42);
+            headGrad.addColorStop(0, '#dbab91'); 
+            headGrad.addColorStop(1, '#bc876b'); 
+            ctx.fillStyle = headGrad;
+            ctx.beginPath();
+            ctx.ellipse(0, -114, 34, 36, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Stylized Clear-Framed Glasses
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+            ctx.lineWidth = 2.2;
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
+            ctx.beginPath(); ctx.roundRect(-22, -118, 16, 13, 5); ctx.stroke(); ctx.fill();
+            ctx.beginPath(); ctx.roundRect(6, -118, 16, 13, 5); ctx.stroke(); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(-6, -111); ctx.lineTo(6, -111); ctx.stroke();
+
+
+            // --- 8. CORNROWS HAIR MESH WITH SHADING HIGHLIGHTS ---
+            ctx.fillStyle = hairColor;
+            ctx.beginPath();
+            ctx.ellipse(0, -119, 34.6, 31, 0, Math.PI, 0, false);
+            ctx.fill();
+
+            // Scalloped Baby Hair Line Edges
+            ctx.beginPath();
+            for (let angle = Math.PI; angle <= Math.PI * 2; angle += 0.12) {
+                let hx = Math.cos(angle) * 34.2;
+                let hy = -119 + Math.sin(angle) * 29.5;
+                ctx.arc(hx, hy, 3.5, 0, Math.PI * 2);
+            }
+            ctx.fill();
+
+            // Curved Braid Track Overlays
+            const tracks = 9;
+            ctx.lineWidth = 1.8;
+            for (let i = 0; i < tracks; i++) {
+                ctx.strokeStyle = '#2b2b32'; 
+                ctx.beginPath();
+                let spacing = (i / (tracks - 1)) - 0.5;
+                ctx.ellipse(spacing * 15, -122, 25, 25, 0, Math.PI * 1.1, Math.PI * 1.9);
+                ctx.stroke();
+            }
+
+            // Hanging side locks extensions
+            ctx.fillStyle = hairColor;
+            ctx.fillRect(-34, -104, 4, 30);
+            ctx.fillRect(30, -104, 4, 30);
+
+
+            // --- 9. FOREHEAD ACCENT PINK BOW ---
+            ctx.save();
+            ctx.translate(-22, -137);
+            ctx.rotate(-0.08);
+            
+            let pinkGrad = ctx.createLinearGradient(-10, -5, 10, 5);
+            pinkGrad.addColorStop(0, '#ff6b81');
+            pinkGrad.addColorStop(1, '#ff4757');
+            ctx.fillStyle = pinkGrad;
+
+            // Loops & Bow Structure
+            ctx.beginPath(); ctx.ellipse(-10, -2, 11, 7, -Math.PI / 6, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(11, -2, 11, 7, Math.PI / 6, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#ff4757';
+            ctx.beginPath(); ctx.moveTo(-3, 1); ctx.lineTo(-8, 14); ctx.lineTo(-2, 12); ctx.closePath(); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(3, 1); ctx.lineTo(8, 14); ctx.lineTo(2, 12); ctx.closePath(); ctx.fill();
+            ctx.fillStyle = '#ff6b81';
+            ctx.beginPath(); ctx.arc(0, 0, 4, 0, Math.PI * 2); ctx.fill();
+            ctx.restore();
+
+            ctx.restore();
+            requestAnimationFrame(animate);
+        }
+
+        requestAnimationFrame(animate);
+    </script>
+</body>
+</html>
