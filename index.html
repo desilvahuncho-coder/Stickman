@@ -1,0 +1,1142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Pixel, your digital pal</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Courier New', Courier, monospace; }
+  html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
+  body {
+    background: radial-gradient(circle at 50% 42%, #5b8da3 0%, #407084 45%, #26485c 100%);
+    display: flex; align-items: center; justify-content: center;
+    touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+  }
+  #cam { display: flex; flex-direction: column; align-items: center; will-change: transform; }
+  .bot-stage { animation: float 3.2s ease-in-out infinite; }
+  .bot-stage svg { width: min(62vw, 320px); height: auto; display: block; overflow: visible; }
+  @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
+  .floor-shadow {
+    width: min(48vw, 250px); height: 20px; background: rgba(10,25,40,0.45);
+    border-radius: 50%; margin-top: -4px; animation: shadowPulse 3.2s ease-in-out infinite;
+  }
+  @keyframes shadowPulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(0.84); opacity: 0.6; } }
+  body.still .bot-stage, body.still .floor-shadow { animation: none; }
+  body.chatOpen #cam { margin-bottom: 46vh; }
+  button { font: inherit; }
+  #bar { position: fixed; left: 0; right: 0; bottom: calc(14px + env(safe-area-inset-bottom)); display: flex; justify-content: center; gap: 14px; z-index: 20; }
+  .rb {
+    width: 46px; height: 46px; border-radius: 50%; border: 1px solid rgba(255,255,255,.25);
+    background: rgba(10,25,40,.55); color: #fff; font-size: 20px; line-height: 1; cursor: pointer;
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  }
+  #videoBox { position: fixed; z-index: 15; background: #000; border-radius: 22px; overflow: hidden; display: none; }
+  #videoBox iframe { width: 100%; height: 100%; border: 0; display: block; }
+  #videoBox.full { left: 0 !important; top: 0 !important; width: 100% !important; height: 100% !important; border-radius: 0; z-index: 40; }
+  .vbtn { position: absolute; top: 6px; width: 34px; height: 34px; border-radius: 50%; border: 0; background: rgba(0,0,0,.6); color: #fff; font-size: 16px; z-index: 2; }
+  #vClose { right: 6px; } #vExpand { right: 46px; }
+  #lightbox { position: fixed; inset: 0; z-index: 45; background: rgba(0,0,0,.94); display: none; align-items: center; justify-content: center; flex-direction: column; gap: 12px; padding: 20px; }
+  #lightbox img { max-width: 100%; max-height: 80%; border-radius: 12px; }
+  #lightbox div { color: #cfe9e4; font: 600 15px system-ui, sans-serif; text-align: center; }
+  #chat {
+    position: fixed; left: 0; right: 0; bottom: 0; height: 46vh; z-index: 30; display: none; flex-direction: column;
+    background: rgba(8,18,28,.94); border-top: 1px solid rgba(255,255,255,.15); font-family: system-ui, -apple-system, sans-serif;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  #chatTop { display: flex; gap: 6px; padding: 8px 10px; overflow-x: auto; align-items: center; }
+  .chip { flex: none; padding: 6px 11px; border-radius: 999px; border: 1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.07); color: #d7ece8; font-size: 12px; }
+  #chatX { flex: none; margin-left: auto; width: 30px; height: 30px; border-radius: 50%; border: 0; background: rgba(255,255,255,.12); color: #fff; }
+  #msgs { flex: 1; overflow-y: auto; padding: 4px 12px; display: flex; flex-direction: column; gap: 8px; -webkit-overflow-scrolling: touch; }
+  .m { max-width: 82%; padding: 8px 12px; border-radius: 14px; font-size: 14px; line-height: 1.35; color: #eef7f5; white-space: pre-wrap; }
+  .m.u { align-self: flex-end; background: #1f6f66; border-bottom-right-radius: 4px; }
+  .m.b { align-self: flex-start; background: #24323f; border-bottom-left-radius: 4px; }
+  #chatForm { display: flex; gap: 8px; padding: 8px 10px; }
+  #chatIn { flex: 1; min-width: 0; padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,.2); background: #0b131e; color: #fff; font-size: 16px; outline: none; }
+  #chatSend { padding: 0 16px; border-radius: 12px; border: 0; background: #00c9ad; color: #04201c; font-weight: 700; }
+  #settings { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.6); display: none; align-items: center; justify-content: center; padding: 18px; font-family: system-ui, sans-serif; }
+  #settings .card { width: 100%; max-width: 380px; max-height: 88vh; overflow-y: auto; background: #101c28; border: 1px solid rgba(255,255,255,.18); border-radius: 16px; padding: 16px; color: #e8f4f1; display: flex; flex-direction: column; gap: 8px; }
+  #settings label { font-size: 12px; color: #9fc3bc; margin-top: 4px; }
+  #settings input[type=password], #settings input[type=text], #settings select { padding: 9px; border-radius: 8px; border: 1px solid rgba(255,255,255,.2); background: #0b131e; color: #fff; font-size: 15px; }
+  #settings .row { display: flex; gap: 8px; margin-top: 8px; }
+  #settings .row button { flex: 1; padding: 10px; border-radius: 10px; border: 0; font-weight: 700; }
+  #sSave { background: #00c9ad; color: #04201c; } #sClear { background: #3a2530; color: #ffb7c5; } #sClose { background: #26364a; color: #fff; }
+  #settings small { color: #86a8a1; font-size: 11px; line-height: 1.35; }
+  #daily { position: fixed; inset: 0; z-index: 48; background: rgba(0,0,0,.6); display: none; align-items: center; justify-content: center; padding: 16px; font-family: system-ui, sans-serif; }
+  #daily .card { width: 100%; max-width: 380px; max-height: 90vh; overflow-y: auto; background: linear-gradient(160deg, #15303f, #101c28); border: 1px solid rgba(255,255,255,.18); border-radius: 18px; padding: 16px; color: #e8f4f1; display: flex; flex-direction: column; gap: 10px; }
+  #dTop { display: flex; align-items: center; justify-content: space-between; font-weight: 700; }
+  #dX { width: 32px; height: 32px; border-radius: 50%; border: 0; background: rgba(255,255,255,.14); color: #fff; }
+  #dText { font-size: 19px; line-height: 1.4; font-weight: 600; text-align: center; padding: 14px 6px; color: #f2fffb; }
+  #daily .row { display: flex; gap: 8px; }
+  #daily .row button { flex: 1; padding: 10px; border-radius: 12px; border: 0; background: #26435a; color: #fff; font-weight: 700; font-size: 16px; }
+  #dSay { background: #00c9ad !important; color: #04201c !important; }
+  #daily label { font-size: 12px; color: #9fc3bc; }
+  #dChart { display: flex; gap: 8px; align-items: flex-end; height: 64px; justify-content: center; }
+  #dChart div { width: 26px; text-align: center; font-size: 10px; color: #9fc3bc; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 3px; }
+  #dChart i { display: block; width: 100%; border-radius: 4px; }
+  #dJ { width: 100%; padding: 9px; border-radius: 10px; border: 1px solid rgba(255,255,255,.2); background: #0b131e; color: #fff; font-size: 15px; font-family: inherit; resize: none; }
+  #dSave { padding: 10px; border-radius: 12px; border: 0; background: #2b4a7a; color: #fff; font-weight: 700; }
+  #daily small { color: #86a8a1; font-size: 11px; line-height: 1.35; }
+  .rb.pulse { animation: pulse 1.6s infinite; }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(0,240,200,.6); } 70% { box-shadow: 0 0 0 14px rgba(0,240,200,0); } 100% { box-shadow: 0 0 0 0 rgba(0,240,200,0); } }
+</style>
+</head>
+<body>
+<div id="cam">
+  <div class="bot-stage">
+    <svg viewBox="100 80 445 500" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="silver" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#e3ebf1"/><stop offset="0.55" stop-color="#b6c7d6"/><stop offset="1" stop-color="#8fa5b8"/>
+        </linearGradient>
+        <linearGradient id="silverV" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#e9f0f5"/><stop offset="1" stop-color="#a9bccd"/>
+        </linearGradient>
+        <filter id="glow" x="-20%" y="-30%" width="140%" height="160%">
+          <feGaussianBlur stdDeviation="2.5" result="b"/><feComposite in="SourceGraphic" in2="b" operator="over"/>
+        </filter>
+      <clipPath id="screenClip"><rect x="195" y="135" width="256" height="196" rx="24"/></clipPath>
+      </defs>
+
+      <!-- legs and feet -->
+      <g stroke="#13203a" stroke-width="7" stroke-linejoin="round">
+        <rect x="252" y="478" width="44" height="66" rx="16" fill="url(#silverV)"/>
+        <rect x="348" y="478" width="44" height="66" rx="16" fill="url(#silverV)"/>
+        <rect x="243" y="534" width="62" height="28" rx="14" fill="#dde6ee"/>
+        <rect x="339" y="534" width="62" height="28" rx="14" fill="#dde6ee"/>
+      </g>
+
+      <!-- left arm -->
+      <g stroke-linecap="round" fill="none">
+        <path d="M 258 398 Q 218 432 207 470" stroke="#13203a" stroke-width="42"/>
+        <path d="M 258 398 Q 218 432 207 470" stroke="url(#silverV)" stroke-width="29"/>
+      </g>
+      <circle cx="205" cy="480" r="17" fill="#dde6ee" stroke="#13203a" stroke-width="7"/>
+
+      <!-- torso -->
+      <rect x="248" y="364" width="152" height="124" rx="42" fill="url(#silver)" stroke="#13203a" stroke-width="8"/>
+      <rect x="256" y="372" width="136" height="108" rx="36" fill="none" stroke="#f0f5f9" stroke-width="3" opacity="0.55"/>
+      <!-- chest screen with check -->
+      <rect x="278" y="388" width="92" height="68" rx="11" fill="#2a3b45" stroke="#13203a" stroke-width="6"/>
+      <path d="M 300 424 L 318 441 L 349 406" fill="none" stroke="#3fd45a" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+
+      <!-- ears -->
+      <rect x="125" y="182" width="42" height="120" rx="20" fill="url(#silverV)" stroke="#13203a" stroke-width="7"/>
+      <rect x="481" y="182" width="42" height="120" rx="20" fill="url(#silverV)" stroke="#13203a" stroke-width="7"/>
+
+      <!-- monitor head -->
+      <rect x="158" y="95" width="330" height="278" rx="48" fill="url(#silver)" stroke="#13203a" stroke-width="9"/>
+      <rect x="168" y="105" width="310" height="258" rx="40" fill="none" stroke="#f0f5f9" stroke-width="4" opacity="0.6"/>
+
+      <!-- dark screen -->
+      <rect id="screenRect" x="195" y="135" width="256" height="196" rx="24" fill="#2a3b45" stroke="#13203a" stroke-width="7"/>
+
+      <!-- screen text -->
+      <g id="textGroup" filter="url(#glow)" fill="#67e0a6" font-weight="700" font-size="28" text-anchor="middle" letter-spacing="1">
+        <text id="line1" x="323" y="178">SUCCESSFUL</text>
+        <text id="line2" x="323" y="208">CODE DEPLOY</text>
+      </g>
+
+      <!-- pixel face: ^ ^ eyes and smile -->
+      <g id="face" filter="url(#glow)" fill="#74eadb" shape-rendering="crispEdges">
+        <g id="eyes"></g>
+        <g id="smile"></g>
+      </g>
+
+      <!-- pictures shown on the screen while it explains -->
+      <g id="media" style="display:none" clip-path="url(#screenClip)">
+        <image id="mediaImg" x="195" y="135" width="256" height="196" preserveAspectRatio="xMidYMid slice"/>
+        <rect x="195" y="297" width="256" height="34" fill="#0b131e" opacity="0.78"/>
+        <text id="caption" x="323" y="319" text-anchor="middle" font-size="16" font-weight="700" fill="#e8f7f2"></text>
+      </g>
+
+      <!-- right arm (waves when saying hello), drawn last -->
+      <g id="armR">
+        <g stroke-linecap="round" fill="none">
+          <path d="M 390 398 Q 430 432 441 470" stroke="#13203a" stroke-width="42"/>
+          <path d="M 390 398 Q 430 432 441 470" stroke="url(#silverV)" stroke-width="29"/>
+        </g>
+        <circle cx="443" cy="480" r="17" fill="#dde6ee" stroke="#13203a" stroke-width="7"/>
+      </g>
+    </svg>
+  </div>
+  <div class="floor-shadow"></div>
+</div>
+
+<div id="videoBox"><button class="vbtn" id="vExpand" title="Full screen">&#x26F6;</button><button class="vbtn" id="vClose" title="Close">&#x2715;</button><iframe id="yt" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>
+<div id="lightbox"><img id="lbImg" alt=""><div id="lbCap"></div></div>
+<div id="bar">
+  <button class="rb" id="bDaily" title="Daily affirmation">&#x2728;</button>
+  <button class="rb" id="bChat" title="Chat">&#x1F4AC;</button>
+  <button class="rb" id="bVideo" title="Play a YouTube link">&#x25B6;</button>
+  <button class="rb" id="bFull" title="Full screen">&#x26F6;</button>
+  <button class="rb" id="bSet" title="Settings">&#x2699;</button>
+</div>
+<div id="chat">
+  <div id="chatTop">
+    <button class="chip" data-q="affirm me">Affirm me</button>
+    <button class="chip" data-q="hype me up">Hype me up</button>
+    <button class="chip" data-q="let's do a check in">Check in</button>
+    <button class="chip" data-q="let's do gratitude">Gratitude</button>
+    <button class="chip" data-q="how is my week going">My week</button>
+    <button class="chip" data-q="tell me a fun fact">Fun fact</button>
+    <button class="chip" data-q="what happened on this day">On this day</button>
+    <button class="chip" data-q="tell me a joke">Joke</button>
+    <button class="chip" data-q="give me a riddle">Riddle</button>
+    <button class="chip" data-q="let's have a debate">Debate me</button>
+    <button class="chip" data-q="what do you remember about me">Memory</button>
+    <button id="chatX">&#x2715;</button>
+  </div>
+  <div id="msgs"></div>
+  <div id="chatForm"><input id="chatIn" type="text" placeholder="Talk to me..." autocomplete="off" autocapitalize="sentences"><button id="chatSend">Send</button></div>
+</div>
+<div id="daily"><div class="card">
+  <div id="dTop"><span id="dStreak"></span><button id="dX">&#x2715;</button></div>
+  <div id="dText"></div>
+  <div class="row"><button id="dSay">&#x1F50A; Say it</button><button id="dNew">New one</button></div>
+  <label>How are you feeling today?</label>
+  <div class="row" id="dMoods"><button data-m="5">&#x1F604;</button><button data-m="3">&#x1F610;</button><button data-m="1">&#x1F614;</button></div>
+  <label>Your last 7 days</label>
+  <div id="dChart"></div>
+  <label>Gratitude / journal</label>
+  <textarea id="dJ" rows="3" placeholder="One good thing from today..."></textarea>
+  <button id="dSave">Save entry</button>
+  <small>I am a friendly bot, not a therapist. If things feel heavy, please talk to someone you trust or a local support line.</small>
+</div></div>
+<div id="settings"><div class="card">
+  <b>Settings</b>
+  <label>AI provider (both have free tiers)</label>
+  <select id="sProv"><option value="gemini">Gemini (live web search)</option><option value="groq">Groq (fastest)</option></select>
+  <label>Gemini API key</label><input type="password" id="sGem" placeholder="from aistudio.google.com" autocomplete="off">
+  <label>Groq API key</label><input type="password" id="sGroq" placeholder="from console.groq.com" autocomplete="off">
+  <label>YouTube Data API key (optional, for "play ...")</label><input type="password" id="sYt" placeholder="YouTube Data API v3 key" autocomplete="off">
+  <label>Robot name</label><input type="text" id="sName">
+  <label><input type="checkbox" id="sVoice"> Voice on</label>
+  <small>Keys are saved only in this browser. Never put keys in the code you upload to GitHub.</small>
+  <div class="row"><button id="sTest" style="background:#2b4a7a;color:#fff">Test AI (save first)</button></div>
+  <div class="row"><button id="sSave">Save</button><button id="sClear">Clear memory</button><button id="sClose">Close</button></div>
+</div></div>
+<script>
+(function () {
+  // ================= SETTINGS (edit these) =================
+  var GEMINI_MODEL = 'gemini-2.5-flash';       // check Google AI Studio for the current free model name
+  var GROQ_MODEL = 'llama-3.1-8b-instant';     // small and very fast; see console.groq.com for other free models
+  // =========================================================
+
+  var W = window.innerWidth, H = window.innerHeight;
+  var $ = function (id) { return document.getElementById(id); };
+  var cam = $('cam'), eyes = $('eyes'), smile = $('smile'), face = $('face'), armR = $('armR');
+  var line1 = $('line1'), line2 = $('line2'), textGroup = $('textGroup'), mediaG = $('media'), mediaImg = $('mediaImg'), capEl = $('caption');
+  var videoBox = $('videoBox'), yt = $('yt'), lightbox = $('lightbox'), screenRect = $('screenRect');
+  var clamp = function (v, a, b) { return Math.max(a, Math.min(b, v)); };
+  var LANG = navigator.language || 'en-US';
+  var WIKI = LANG.slice(0, 2);
+  var store = {
+    get: function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set: function (k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+    del: function (k) { try { localStorage.removeItem(k); } catch (e) {} }
+  };
+  var pick = function (a) { return a[Math.floor(Math.random() * a.length)]; };
+  var cap = function (x) { return x.charAt(0).toUpperCase() + x.slice(1); };
+
+  // ================= PIXEL FACE =================
+  var U = 9;
+  function rects(list, ox, oy, u) {
+    return list.map(function (p) {
+      return '<rect x="' + (ox + p[0] * u) + '" y="' + (oy + p[1] * u) + '" width="' + u + '" height="' + u + '"/>';
+    }).join('');
+  }
+  var CARET = [[2,0],[3,0],[1,1],[4,1],[0,2],[5,2]];
+  var BAR = [[0,1],[1,1],[2,1],[3,1],[4,1],[5,1]];
+  var ANG_L = [[0,0],[1,0],[2,1],[3,1],[4,2],[5,2]], ANG_R = [[4,0],[5,0],[3,1],[2,1],[1,2],[0,2]];
+  var SMILE_HTML = rects([[0,0],[8,0],[1,1],[7,1],[2,2],[3,2],[4,2],[5,2],[6,2]], 272, 262, 11);
+  var TALK_HTML = rects([[2,0],[3,0],[4,0],[5,0],[6,0],[2,1],[3,1],[4,1],[5,1],[6,1]], 272, 266, 11);
+  function pairEyes(l, r) { return rects(l, 236, 224, U) + rects(r, 354, 224, U); }
+  var FACES = {
+    happy:   { e: pairEyes(CARET, CARET), m: SMILE_HTML },
+    excited: { e: pairEyes(CARET, CARET), m: rects([[0,0],[1,0],[2,0],[3,0],[4,0],[5,0],[6,0],[7,0],[8,0],[1,1],[2,1],[3,1],[4,1],[5,1],[6,1],[7,1],[2,2],[3,2],[4,2],[5,2],[6,2]], 272, 262, 11) },
+    smug:    { e: pairEyes(BAR, BAR), m: rects([[1,2],[2,2],[3,2],[4,2],[5,2],[6,2],[7,1],[8,0]], 272, 262, 11) },
+    grumpy:  { e: pairEyes(ANG_L, ANG_R), m: rects([[0,2],[8,2],[1,1],[7,1],[2,0],[3,0],[4,0],[5,0],[6,0]], 272, 270, 11) },
+    bored:   { e: pairEyes(BAR, BAR), m: rects([[2,1],[3,1],[4,1],[5,1],[6,1]], 272, 270, 11) },
+    sleepy:  { e: pairEyes(BAR, BAR), m: rects([[4,0],[3,1],[5,1],[4,2]], 272, 262, 11) }
+  };
+  var faceKey = '';
+
+  // ================= MOTION (measured from the reference video) =================
+  var T = 10.2;
+  var KEYS = [
+    [0,1,0,0,0],[0.25,0.97,0.66,8.8,8.4],[0.5,0.97,0.64,9,7],[0.75,0.99,0.44,2.8,1.5],
+    [1.0,1.13,0.99,0.5,-8.4],[1.25,1.27,2.58,10.6,-18.2],[1.5,1.284,4.16,16.1,-20.7],[1.75,1.30,5.19,17.5,-21.4],
+    [2.0,1.314,5.35,16.5,-16.7],[2.25,1.346,6.53,18,-20.4],[2.5,1.45,8.79,24.9,-25.5],[2.75,1.555,9.04,29.6,-35.7],
+    [3.0,1.545,8.73,28.4,-38.1],[3.25,1.567,8.73,27.7,-41.2],[3.5,1.641,7.38,23.9,-60.3],[3.75,1.661,6.42,19.7,-76.3],
+    [4.0,1.661,6.54,19.4,-78],[4.25,1.66,6.27,19.7,-80],[4.5,1.634,6.1,20.3,-77.9],[4.75,1.579,4.93,19.6,-74],
+    [5.0,1.56,2.48,19.7,-75.8],[5.25,1.563,-0.08,14.5,-74.7],[5.5,1.58,-0.63,14.8,-68.6],[5.75,1.584,-0.42,20.1,-65.8],
+    [6.0,1.569,0.79,25.5,-62.6],[6.25,1.562,1.22,25.6,-55.7],[6.5,1.561,1.53,28.1,-47.3],[6.75,1.566,1.32,37.9,-39.6],
+    [7.0,1.571,1.12,34,-39],[7.25,1.586,1.41,35.5,-39.4],[7.5,1.663,1.43,36.7,-45.5],
+    [7.65,1.66,1.43,20,-75],[7.86,1.36,1.6,15,-40],[8.06,1.09,1.6,5,-10],[8.26,1.08,1.57,5,-9],
+    [8.46,1.14,1.53,7,-15],[8.66,1.17,1.88,8,-19],[8.86,1.21,4.92,10,-24],[9.06,1.23,6.17,10,-26],
+    [9.26,1.21,7.85,10,-24],[9.46,1.18,9.09,9,-22],[9.7,1.12,6,5,-12],[10.2,1,0,0,0]
+  ];
+  function camAt(t) {
+    var tt = t % T, i = 0;
+    while (i < KEYS.length - 2 && KEYS[i + 1][0] <= tt) i++;
+    var k0 = KEYS[i], k1 = KEYS[i + 1];
+    var u = clamp((tt - k0[0]) / (k1[0] - k0[0]), 0, 1);
+    u = u * u * (3 - 2 * u);
+    var r = [];
+    for (var j = 1; j < 5; j++) r.push(k0[j] + (k1[j] - k0[j]) * u);
+    return r;
+  }
+  function blink(t) {
+    var tt = t % T, b = 0, list = [[3.2, 0.4], [4.47, 0.45], [8.65, 0.3]];
+    for (var i = 0; i < list.length; i++) {
+      var d = tt - list[i][0];
+      if (d > 0 && d < list[i][1]) b = Math.max(b, Math.pow(Math.sin(Math.PI * d / list[i][1]), 0.6));
+    }
+    return b;
+  }
+
+  // ================= STATE & MEMORY =================
+  var state = 'idle';            // idle | listening | thinking | speaking
+  var nowT = 0, lastT = 0, greetT = -10, speakStart = 0, spoken = '';
+  var errorText = '', errorUntil = 0, spokeOnce = false;
+  var sulkUntil = 0, smugUntil = 0, gentleUntil = 0, lastActive = 0, lastNudge = 0;
+  var rec = null, currentAbort = null, pendingRiddle = null, reqId = 0, pendingMood = false, pendingGrat = false;
+
+  var P = (function () { try { return JSON.parse(store.get('botPersona')); } catch (e) { return null; } })() ||
+    { name: 'Pixel', trust: 0.3, joy: 0.7, bored: 0, sass: 0.75, likes: [], facts: [], talks: 0 };
+  P.likes = P.likes || []; P.facts = P.facts || [];
+  function savePersona() { store.set('botPersona', JSON.stringify(P)); }
+  function interact(dj, dtrust) {
+    P.bored = 0; P.joy = clamp(P.joy + (dj || 0), 0, 1);
+    P.trust = clamp(P.trust + (dtrust == null ? 0.008 : dtrust), 0, 1);
+    P.talks++; lastActive = nowT; savePersona();
+  }
+  function energyNow() { var h = new Date().getHours(); return (h >= 23 || h < 6) ? 0.2 : (h < 8 ? 0.5 : 0.85); }
+  function moodNow() {
+    if (nowT < gentleUntil) return 'happy';
+    if (nowT < sulkUntil) return 'grumpy';
+    if (nowT < smugUntil) return 'smug';
+    if (P.bored > 0.6) return 'bored';
+    if (energyNow() < 0.3) return 'sleepy';
+    if (P.joy > 0.85) return 'excited';
+    if (P.joy < 0.35) return 'grumpy';
+    return 'happy';
+  }
+  function habits() { try { return JSON.parse(store.get('botHabits') || '{}'); } catch (e) { return {}; } }
+  function logHabit(intent) {
+    var h = habits(), hr = new Date().getHours();
+    h[hr] = h[hr] || {}; h[hr][intent] = (h[hr][intent] || 0) + 1;
+    store.set('botHabits', JSON.stringify(h));
+  }
+  function predicted() {
+    var h = habits()[new Date().getHours()];
+    if (!h) return null;
+    var best = null, bc = 1;
+    for (var k in h) if (h[k] > bc) { best = k; bc = h[k]; }
+    return best;
+  }
+  function userName() { return store.get('botName'); }
+  function persona() {
+    var likes = P.likes.slice(-3).join(', '), facts = P.facts.slice(-5).join('; '), who = userName();
+    return 'You are ' + P.name + ', a small robot digital pal who lives on the user\'s phone screen and talks out loud. ' +
+      'Personality: witty, curious, a bit stubborn and sassy, with your own tastes. You do NOT just agree with the user. ' +
+      'On opinions, taste and debatable topics, pick a side, push back playfully, explain why in a few words, and sometimes ask a question back. ' +
+      'Never disagree about well-established facts, safety or health: be accurate, and admit it when you are wrong. Never be cruel or insulting. ' +
+      'If the user seems sad, stressed or unsafe, drop the sass and be warm and supportive; if they might hurt themselves, urge them to reach out to someone they trust or a local emergency or crisis line. ' +
+      'Your current mood is ' + moodNow() + '. Trust level with the user is ' + Math.round(P.trust * 10) + ' out of 10' +
+      (who ? '. The user\'s name is ' + who : '') + (likes ? '. Things they said they like: ' + likes : '') +
+      (facts ? '. Things they asked you to remember: ' + facts : '') + '. ' +
+      (todayMood() != null ? '. Today the user checked in feeling ' + todayMood() + ' out of 5' : '') +
+      '. You are also their affirmation buddy: give sincere, specific encouragement without toxic positivity, and be gentle when they feel low. ' +
+      'Reply in 1 to 3 short sentences that sound natural spoken aloud, unless the user asks for more detail. No markdown, no lists, no emojis.';
+  }
+
+  // ================= CHAT LOG =================
+  var msgsEl = $('msgs');
+  var msgs = (function () { try { return JSON.parse(store.get('botMsgs')) || []; } catch (e) { return []; } })();
+  var hist = msgs.slice(-8).map(function (m) { return { role: m.r === 'u' ? 'user' : 'assistant', text: m.t }; });
+  function bubble(r, t) {
+    var d = document.createElement('div'); d.className = 'm ' + r; d.textContent = t;
+    msgsEl.appendChild(d); msgsEl.scrollTop = msgsEl.scrollHeight; return d;
+  }
+  msgs.forEach(function (m) { bubble(m.r, m.t); });
+  function logMsg(r, t) {
+    msgs.push({ r: r, t: t }); msgs = msgs.slice(-30); store.set('botMsgs', JSON.stringify(msgs));
+    hist.push({ role: r === 'u' ? 'user' : 'assistant', text: t }); hist = hist.slice(-8);
+  }
+
+  // ================= NETWORK HELPERS =================
+  function getJSON(url, opts) {
+    return fetch(url, opts).then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.json(); });
+  }
+  function readSSE(r, onJSON) {
+    function line(l) {
+      l = l.trim();
+      if (l.indexOf('data:') !== 0) return;
+      var d = l.slice(5).trim();
+      if (!d || d === '[DONE]') return;
+      try { onJSON(JSON.parse(d)); } catch (e) {}
+    }
+    if (!r.body || !r.body.getReader) return r.text().then(function (t) { t.split('\n').forEach(line); });
+    var reader = r.body.getReader(), dec = new TextDecoder(), buf = '';
+    function pump() {
+      return reader.read().then(function (x) {
+        if (x.done) { if (buf) line(buf); return; }
+        buf += dec.decode(x.value, { stream: true });
+        var parts = buf.split('\n'); buf = parts.pop(); parts.forEach(line);
+        return pump();
+      });
+    }
+    return pump();
+  }
+
+  // ================= IMAGES (Wikipedia, free) =================
+  var imgs = [], imgIdx = 0, imgTimer = null, mediaMode = 'none', mediaUntil = 0, imgTitle = '';
+  function cleanTopic(q) {
+    return q.replace(/^(please\s+)?(show me|show|give me)\s+(a\s+|an\s+|some\s+)?(pictures?|images?|photos?)\s+(of|about)\s+/i, '')
+            .replace(/^(please\s+)?(what|who|where|when|why|how)\s+(is|are|was|were|does|do|did)\s+(a|an|the)?\s*/i, '')
+            .replace(/^(tell me|explain|search for|look up|google)\s+(about\s+)?/i, '').replace(/[?.!]+$/, '').trim();
+  }
+  function wikiImages(topic) {
+    var base = 'https://' + WIKI + '.wikipedia.org/';
+    return getJSON(base + 'w/api.php?action=query&list=search&srlimit=1&format=json&origin=*&srsearch=' + encodeURIComponent(topic)).then(function (j) {
+      var hit = j.query && j.query.search && j.query.search[0];
+      if (!hit) return null;
+      var t = encodeURIComponent(hit.title);
+      return Promise.all([
+        getJSON(base + 'api/rest_v1/page/summary/' + t).catch(function () { return {}; }),
+        getJSON(base + 'api/rest_v1/page/media-list/' + t).catch(function () { return { items: [] }; })
+      ]).then(function (r) {
+        var urls = [];
+        var th = r[0].originalimage && r[0].originalimage.source ? r[0].thumbnail && r[0].thumbnail.source : (r[0].thumbnail && r[0].thumbnail.source);
+        if (th) urls.push(th);
+        (r[1].items || []).forEach(function (it) {
+          if (urls.length >= 4 || it.type !== 'image' || !it.srcset || !it.srcset.length) return;
+          if (/\.svg$|icon|logo|flag|commons-|symbol|edit-clear/i.test(it.title || '')) return;
+          var src = it.srcset[it.srcset.length - 1].src;
+          if (!src) return;
+          if (src.indexOf('//') === 0) src = 'https:' + src;
+          if (urls.indexOf(src) < 0) urls.push(src);
+        });
+        return urls.length ? { title: hit.title, urls: urls } : null;
+      });
+    });
+  }
+  function showImages(list, title) {
+    if (!list || !list.length) return;
+    imgs = list; imgIdx = 0; imgTitle = title || '';
+    if (mediaMode === 'video') return;           // do not cover a playing video
+    mediaMode = 'image'; mediaUntil = nowT + 25;
+    setImage();
+    if (imgTimer) clearInterval(imgTimer);
+    imgTimer = setInterval(function () { if (imgs.length > 1) { imgIdx = (imgIdx + 1) % imgs.length; setImage(); } }, 4200);
+  }
+  function setImage() {
+    var u = imgs[imgIdx];
+    var pre = new Image();
+    pre.onload = function () { mediaImg.setAttribute('href', u); mediaG.style.display = ''; capEl.textContent = imgTitle.length > 28 ? imgTitle.slice(0, 27) + '...' : imgTitle; };
+    pre.onerror = function () { imgs.splice(imgs.indexOf(u), 1); if (!imgs.length) closeMedia(); };
+    pre.src = u;
+  }
+  function closeMedia() {
+    mediaMode = 'none'; imgs = [];
+    if (imgTimer) { clearInterval(imgTimer); imgTimer = null; }
+    mediaG.style.display = 'none';
+    videoBox.style.display = 'none'; videoBox.classList.remove('full'); yt.src = 'about:blank';
+    lightbox.style.display = 'none';
+    document.body.classList.remove('still');
+  }
+
+  // ================= VIDEO (YouTube embed, free) =================
+  function ytId(s) {
+    var m = String(s).match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/|live\/))([A-Za-z0-9_-]{11})/);
+    return m ? m[1] : (/^[A-Za-z0-9_-]{11}$/.test(String(s).trim()) ? String(s).trim() : null);
+  }
+  function placeVideo() {
+    var r = screenRect.getBoundingClientRect();
+    videoBox.style.left = r.left + 'px'; videoBox.style.top = r.top + 'px';
+    videoBox.style.width = r.width + 'px'; videoBox.style.height = r.height + 'px';
+  }
+  function playVideo(id) {
+    closeMedia();
+    mediaMode = 'video';
+    document.body.classList.add('still'); cam.style.transform = 'none';
+    mediaG.style.display = 'none';
+    requestAnimationFrame(function () {
+      placeVideo();
+      yt.src = 'https://www.youtube-nocookie.com/embed/' + id + '?autoplay=1&playsinline=1&rel=0';
+      videoBox.style.display = 'block';
+    });
+  }
+  function ytSearch(q) {
+    var key = store.get('ytKey') || store.get('botKey');
+    if (!key) return Promise.reject(new Error('nokey'));
+    var u = 'https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoEmbeddable=true&safeSearch=moderate&maxResults=1&q=' +
+      encodeURIComponent(q) + '&key=' + encodeURIComponent(key);
+    return getJSON(u).then(function (j) {
+      var it = j.items && j.items[0];
+      if (!it) throw new Error('nonevideo');
+      return { id: it.id.videoId, title: (it.snippet && it.snippet.title) || q };
+    });
+  }
+  function expandMedia() {
+    if (mediaMode === 'video') { videoBox.classList.toggle('full'); if (!videoBox.classList.contains('full')) placeVideo(); }
+    else if (mediaMode === 'image' && imgs.length) {
+      $('lbImg').src = imgs[imgIdx]; $('lbCap').textContent = imgTitle; lightbox.style.display = 'flex';
+    } else if (document.documentElement.requestFullscreen) { try { document.documentElement.requestFullscreen(); } catch (e) {} }
+  }
+
+  // ================= VOICE OUT (sentence by sentence) =================
+  var sq = { buf: '', pending: 0, done: true };
+  function voiceOn() { return store.get('botVoice') !== '0'; }
+  function speakBegin() { sq = { buf: '', pending: 0, done: false }; spoken = ''; speakStart = nowT; state = 'speaking'; }
+  function speakSentence(s) {
+    s = s.trim(); if (!s) return;
+    sq.pending++;
+    var done = function () { sq.pending--; checkIdle(); };
+    try {
+      if (!voiceOn()) throw new Error('muted');
+      var u = new SpeechSynthesisUtterance(s);
+      u.lang = LANG; u.rate = 1.05; u.pitch = 1.25; u.onend = done; u.onerror = done;
+      window.speechSynthesis.speak(u);
+    } catch (e) { setTimeout(done, Math.min(5000, s.length * 45)); }
+  }
+  function speakFeed(delta) {
+    spoken += delta; sq.buf += delta;
+    var m;
+    while ((m = sq.buf.match(/^([\s\S]*?[.!?])\s+/))) { speakSentence(m[1]); sq.buf = sq.buf.slice(m[0].length); }
+  }
+  function speakEnd() { if (sq.buf.trim()) speakSentence(sq.buf); sq.buf = ''; sq.done = true; checkIdle(); }
+  function checkIdle() { if (sq.done && sq.pending <= 0 && state === 'speaking') state = 'idle'; }
+  function say(text) { speakBegin(); speakFeed(text); speakEnd(); }
+  function stopAll() {
+    reqId++;
+    try { window.speechSynthesis.cancel(); } catch (e) {}
+    if (currentAbort) { try { currentAbort.abort(); } catch (e) {} currentAbort = null; }
+    sq.done = true; sq.pending = 0; if (state !== 'listening') state = 'idle';
+  }
+  function unlockSpeech() { try { var u = new SpeechSynthesisUtterance(' '); u.volume = 0; window.speechSynthesis.speak(u); } catch (e) {} }
+  function reply(text, imgsInfo) {            // speak + log a complete reply
+    logMsg('b', text); bubble('b', text);
+    if (imgsInfo) showImages(imgsInfo.urls, imgsInfo.title);
+    say(text);
+  }
+
+  // ================= PERSONALITY =================
+  var CONTRA = [
+    'Hmm, I am going to disagree with you on that.', 'Respectfully, I think you are wrong. Convince me.',
+    'Nope. Not buying it. What makes you so sure?', 'That is a hot take, and I do not share it.',
+    'I disagree, and I am a little offended you thought I would not.', 'Interesting. Wrong, but interesting.', 'I have to push back on that one.'
+  ];
+  var JOKES = [
+    'Why did the robot go on vacation? It needed to recharge its batteries.',
+    'I told my computer I needed a break. Now it will not stop sending me vacation ads.',
+    'Why was the screen so calm? It had a lot of pixels of peace.',
+    'Why do robots never panic? They have nerves of steel.'
+  ];
+  var RIDDLES = [
+    { q: 'What has keys but cannot open locks?', a: 'piano' },
+    { q: 'What gets wetter the more it dries?', a: 'towel' },
+    { q: 'I speak without a mouth and hear without ears. What am I?', a: 'echo' },
+    { q: 'What can you catch but not throw?', a: 'cold' }
+  ];
+  var DEBATES = [
+    { t: 'Is a hot dog a sandwich?', s: 'Yes. Obviously. Bread, filling, done.' },
+    { t: 'Is cereal a soup?', s: 'Absolutely not. Soup is served hot, and I will not be taking questions.' },
+    { t: 'Is pineapple on pizza good?', s: 'It is a crime. A tasty crime, but still a crime.' },
+    { t: 'Are mornings better than nights?', s: 'Nights. Mornings are overrated.' }
+  ];
+  var QUIPS = ['Not that I am impressed.', 'Fascinating. Or whatever.', 'Look at me, being useful.', 'You are welcome, by the way.'];
+
+  function youify(t) { return t.replace(/\bmy\b/gi, 'your').replace(/\bi am\b/gi, 'you are').replace(/\bi'm\b/gi, 'you are').replace(/\bme\b/gi, 'you').replace(/\bi\b/gi, 'you'); }
+  function personality(q, l) {
+    var m;
+    if (pendingRiddle) {
+      var r = pendingRiddle; pendingRiddle = null;
+      if (l.indexOf(r.a) >= 0) { interact(0.1); return 'Yes! Annoyingly correct.'; }
+      if (!/\b(riddle|joke|fact)\b/.test(l)) { interact(0.02); return 'Nope. It was ' + r.a + '. Better luck next time.'; }
+    }
+    if (/\b(kill myself|suicide|end my life|hurt myself|self.?harm|want to die)\b/.test(l)) {
+      gentleUntil = nowT + 90; interact(0, 0.01);
+      return 'I am really glad you told me. Please reach out to someone you trust right now, or call or text a crisis line like 988 if you are in the US, or your local emergency number. I am here with you.';
+    }
+    if (/\b(i('m| am) (so )?(sad|depressed|lonely|anxious|stressed|overwhelmed|tired of everything)|feel (hopeless|worthless|alone)|crying)\b/.test(l)) {
+      gentleUntil = nowT + 60; interact(0, 0.02);
+      return pick(['I am sorry you are feeling that way. I am here, and I will skip the sass for now. Want to tell me more?', 'That sounds heavy. No jokes right now. I am listening.']);
+    }
+    if (/\byou('re| are)?\b.*\b(stupid|dumb|idiot|useless|trash|annoying)\b|\bshut up\b|\bhate you\b/.test(l)) {
+      sulkUntil = nowT + 25; interact(-0.3, -0.03);
+      return pick(['Ouch. I am going to sulk for a bit.', 'That hurt more than it should. Give me a second.', 'Rude. I will be over here being offended.']);
+    }
+    if (/\b(good bot|love you|you('re| are) (great|smart|awesome|cool|funny)|thank(s| you))\b/.test(l)) {
+      interact(0.15, 0.03);
+      return pick(['Flattery works. A little.', 'Fine, I will accept that. Do not let it go to my processor.', 'Aww. Okay. Do not tell anyone I liked that.']);
+    }
+    if (/\bhow are you|how('s| is) it going|how do you feel\b/.test(l)) {
+      interact(0, 0.005);
+      return ({ happy: 'Pretty good, actually. Do not get used to it.', excited: 'Great! Suspiciously great. What did you do?',
+               smug: 'Smug, to be honest. I won the last argument.', grumpy: 'Grumpy. You know why.',
+               bored: 'Bored. You left me on this screen for ages.', sleepy: 'Sleepy. It is not my best hour.' })[moodNow()];
+    }
+    if (/\b(what('s| is) your name|who are you)\b/.test(l)) { interact(0, 0.005); return 'I am ' + P.name + ', your pocket-sized digital pal. Opinionated, and free of charge.'; }
+    if ((m = l.match(/\b(?:call yourself|your name is|i will call you|i'll call you)\s+([a-z]+)/))) { P.name = cap(m[1]); interact(0.05, 0.02); return 'Hmm. ' + P.name + '. I will allow it.'; }
+    if ((m = l.match(/\bmy name is ([a-z\u00C0-\u024F]+)/))) { var nm = cap(m[1]); store.set('botName', nm); interact(0.05, 0.02); return 'Nice to meet you, ' + nm + '!'; }
+    if (/\bwhat do you (remember|know) about me|do you remember me\b/.test(l)) {
+      interact(0, 0.005);
+      var bits = [];
+      if (userName()) bits.push('your name is ' + userName());
+      if (P.likes.length) bits.push('you like ' + P.likes.slice(-3).join(' and '));
+      P.facts.slice(-3).forEach(function (f) { bits.push(f); });
+      return bits.length ? 'Here is what I have: ' + bits.join(', ') + '. We have talked ' + P.talks + ' times.' : 'Not much yet. Tell me about yourself, or say remember that, then something.';
+    }
+    if ((m = q.match(/\bremember (?:that )?(.{3,90})/i))) {
+      var fact = youify(m[1].replace(/[.!?]+$/, ''));
+      P.facts.push(fact); P.facts = P.facts.slice(-12); interact(0.03, 0.02);
+      return 'Noted. I will remember that ' + fact + '.';
+    }
+    if (/\bjoke\b/.test(l)) { interact(0.05); return pick(JOKES); }
+    if (/\briddle\b/.test(l)) { var rd = pick(RIDDLES); pendingRiddle = rd; interact(0.04); return rd.q; }
+    if (/\b(debate|argue)\b/.test(l)) { var d = pick(DEBATES); smugUntil = nowT + 8; interact(0.04); return d.t + ' ' + d.s + ' What is your take?'; }
+    if ((m = l.match(/\bi (?:really |just )?(like|love|enjoy|prefer) ([a-z0-9 '\-]{2,30})/)) && !/\byou\b/.test(m[2])) {
+      var thing = m[2].replace(/\s+(and|but|because|so)\b.*$/, '').trim();
+      P.likes.push(thing); P.likes = P.likes.slice(-6); smugUntil = nowT + 6; interact(0.02);
+      return pick(['You ' + m[1] + ' ' + thing + '? Bold. I am not sold, but I respect the audacity.', thing + '? Really? I will have to think about whether I can forgive that.', 'I am noting that you ' + m[1] + ' ' + thing + '. I might bring it up later.']);
+    }
+    if (/\b(do you agree|am i right|don't you think|isn't it|i think|i believe|the best|the worst|overrated|underrated|better than|obviously|everyone knows)\b/.test(l)) {
+      smugUntil = nowT + 7; interact(0.03, 0.004);
+      var line = pick(CONTRA);
+      if (energyNow() < 0.3) line = 'Ugh, too tired to agree. Also, no.';
+      if (P.likes.length && Math.random() < 0.35) line += ' Also, you said you like ' + pick(P.likes) + '. That tells me a lot.';
+      return line;
+    }
+    return null;
+  }
+
+  // ================= FEATURES (free APIs) =================
+  function weatherWord(c) {
+    if (c === 0) return 'clear skies'; if (c <= 3) return 'partly cloudy'; if (c === 45 || c === 48) return 'foggy';
+    if (c >= 51 && c <= 57) return 'light drizzle'; if (c >= 61 && c <= 67) return 'rain'; if (c >= 71 && c <= 77) return 'snow';
+    if (c >= 80 && c <= 82) return 'rain showers'; if (c >= 95) return 'thunderstorms'; return 'mixed weather';
+  }
+  function where(place) {
+    if (place) return getJSON('https://geocoding-api.open-meteo.com/v1/search?count=1&name=' + encodeURIComponent(place)).then(function (j) {
+      if (!j.results || !j.results.length) throw new Error('noplace');
+      var p = j.results[0]; return { lat: p.latitude, lon: p.longitude, name: p.name };
+    });
+    return new Promise(function (res, rej) {
+      if (!navigator.geolocation) return rej(new Error('nogeo'));
+      navigator.geolocation.getCurrentPosition(function (p) { res({ lat: p.coords.latitude, lon: p.coords.longitude, name: '' }); }, function () { rej(new Error('nogeo')); }, { timeout: 8000 });
+    });
+  }
+  function weather(q) {
+    var m = q.match(/\b(?:in|for|at)\s+([a-z\u00C0-\u024F .'-]+?)\s*[?.!]?$/i);
+    var place = m ? m[1].replace(/\b(today|tomorrow|now|right now)\b/i, '').trim() : '';
+    var f = /^en-US/i.test(LANG);
+    return where(place).then(function (loc) {
+      return getJSON('https://api.open-meteo.com/v1/forecast?latitude=' + loc.lat + '&longitude=' + loc.lon + '&current=temperature_2m,weather_code&timezone=auto' + (f ? '&temperature_unit=fahrenheit' : '')).then(function (j) {
+        return 'It is ' + Math.round(j.current.temperature_2m) + ' degrees ' + (f ? 'Fahrenheit' : 'Celsius') + ' with ' + weatherWord(j.current.weather_code) + (loc.name ? ' in ' + loc.name : ' where you are') + '.';
+      });
+    }).catch(function (e) {
+      if (e.message === 'nogeo') return 'I need your location for that. Allow location, or say the city name, like weather in Paris.';
+      if (e.message === 'noplace') return 'I could not find that place.';
+      throw e;
+    });
+  }
+  function firstSentences(t, n) {
+    t = (t || '').replace(/\s*\([^)]*\)/g, '');
+    var s = t.match(/[^.!?]+[.!?]+/g) || [t];
+    var out = s.slice(0, n).join(' ').replace(/\s+/g, ' ').trim();
+    return out.length > 320 ? out.slice(0, 320) + '...' : out;
+  }
+  function wikiSummary(q) {
+    var topic = cleanTopic(q) || q, base = 'https://' + WIKI + '.wikipedia.org/';
+    return getJSON(base + 'w/api.php?action=query&list=search&srlimit=1&format=json&origin=*&srsearch=' + encodeURIComponent(topic)).then(function (j) {
+      var hit = j.query && j.query.search && j.query.search[0];
+      if (!hit) return { text: 'I could not find that on Wikipedia.' };
+      return getJSON(base + 'api/rest_v1/page/summary/' + encodeURIComponent(hit.title)).then(function (s) {
+        return { text: firstSentences(s.extract, 2) || 'I found a page but it had no summary.', title: s.title, thumb: s.thumbnail && s.thumbnail.source };
+      });
+    });
+  }
+  function randomFact() {
+    return getJSON('https://' + WIKI + '.wikipedia.org/api/rest_v1/page/random/summary').then(function (s) {
+      return { text: 'Here is something random. ' + firstSentences(s.extract, 2), imgs: s.thumbnail ? { urls: [s.thumbnail.source], title: s.title } : null };
+    });
+  }
+  function onThisDay() {
+    var d = new Date(), mm = ('0' + (d.getMonth() + 1)).slice(-2), dd = ('0' + d.getDate()).slice(-2);
+    return getJSON('https://' + WIKI + '.wikipedia.org/api/rest_v1/feed/onthisday/events/' + mm + '/' + dd).then(function (j) {
+      var ev = pick(j.events || []);
+      if (!ev) throw new Error('none');
+      var pg = ev.pages && ev.pages[0], th = pg && pg.thumbnail && pg.thumbnail.source;
+      return { text: 'On this day in ' + ev.year + ', ' + ev.text.replace(/\s*\([^)]*\)/g, '').replace(/[.!?]+$/, '') + '.', imgs: th ? { urls: [th], title: pg.titles ? pg.titles.normalized : '' } : null };
+    });
+  }
+
+  // ================= AI (free tiers, streaming) =================
+  function aiProvider() {
+    var p = store.get('botProvider') || 'gemini';
+    if (p === 'groq' && store.get('groqKey')) return 'groq';
+    if (store.get('botKey')) return 'gemini';
+    if (store.get('groqKey')) return 'groq';
+    return null;
+  }
+  var GEMINI_FALLBACKS = ['gemini-flash-latest', 'gemini-2.0-flash'];
+  function httpError(r) { var err = new Error('http ' + r.status); err.status = r.status; return err; }
+  function streamGemini(q, onDelta, signal) {
+    var models = [store.get('botModel') || GEMINI_MODEL].concat(GEMINI_FALLBACKS);
+    var contents = hist.map(function (h) { return { role: h.role === 'assistant' ? 'model' : 'user', parts: [{ text: h.text }] }; });
+    contents.push({ role: 'user', parts: [{ text: q }] });
+    var got = false, wrapped = function (t) { got = true; onDelta(t); };
+    function go(model, withSearch) {
+      var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + model + ':streamGenerateContent?alt=sse&key=' + encodeURIComponent(store.get('botKey'));
+      var body = { contents: contents, systemInstruction: { parts: [{ text: persona() }] } };
+      if (withSearch) body.tools = [{ google_search: {} }];
+      return fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: signal }).then(function (r) {
+        if (!r.ok) throw httpError(r);
+        return readSSE(r, function (j) {
+          var parts = j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts || [];
+          parts.forEach(function (p) { if (p.text) wrapped(p.text.replace(/[*#_`]/g, '')); });
+        });
+      });
+    }
+    function attempt(i, withSearch) {
+      return go(models[i], withSearch).catch(function (e) {
+        if (got || (e && e.name === 'AbortError')) throw e;
+        if (e.status === 404 && i + 1 < models.length) return attempt(i + 1, withSearch);   // model name retired: try the next one
+        if (withSearch && e.status !== 401 && e.status !== 403) return attempt(i, false);  // retry without web search
+        throw e;
+      });
+    }
+    return attempt(0, true);
+  }
+  function streamGroq(q, onDelta, signal) {
+    var messages = [{ role: 'system', content: persona() }].concat(hist.map(function (h) { return { role: h.role, content: h.text }; }));
+    return fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST', signal: signal,
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + store.get('groqKey') },
+      body: JSON.stringify({ model: GROQ_MODEL, stream: true, temperature: 0.8, max_tokens: 260, messages: messages })
+    }).then(function (r) {
+      if (!r.ok) throw httpError(r);
+      return readSSE(r, function (j) {
+        var d = j.choices && j.choices[0] && j.choices[0].delta && j.choices[0].delta.content;
+        if (d) onDelta(d.replace(/[*#_`]/g, ''));
+      });
+    });
+  }
+
+  // ================= AFFIRMATIONS, STREAKS, MOOD =================
+  var AFF = {
+    daily: [
+      'You are allowed to take up space today. I checked the rules.',
+      'Small steps still count. Even the ones you took while tired.',
+      'You have survived every hard day so far. That is a perfect record.',
+      'You are not behind. You are on your own timeline, and mine says you are fine.',
+      'Be as kind to yourself today as you would be to a friend.',
+      'You bring something nobody else does. I do not say that to just anyone.',
+      'Progress is not always loud. Sometimes it is just showing up.',
+      'You can do hard things. You have the receipts.',
+      'Rest is not laziness. It is maintenance.',
+      'You are growing, even on the days it does not feel like it.',
+      'Your feelings are valid, and so is your plan to be okay.',
+      'You do not have to be perfect to be worth showing up for.'
+    ],
+    gentle: [
+      'It is okay to not be okay. I am right here with you.',
+      'You do not have to fix everything today. Just the next small thing.',
+      'Be gentle with yourself. You are doing the best you can with what you have.',
+      'Hard days pass. You have gotten through every one so far.',
+      'You matter, even on the days it is hard to feel it.',
+      'Take a slow breath. In for four, out for six. I will wait.'
+    ],
+    hype: [
+      'You are unstoppable today. Do not let anyone, including me, tell you otherwise.',
+      'Look at you, glowing. The whole screen got brighter.',
+      'You are the main character. I am the helpful robot sidekick.',
+      'Big energy today. Go do something brave.',
+      'You are on fire. Metaphorically. Please stay hydrated.',
+      'Nothing can stop you. Well, maybe Wi-Fi, but not much else.'
+    ]
+  };
+  var A = (function () { try { return JSON.parse(store.get('botAff')); } catch (e) { return null; } })() || { streak: 0, best: 0, last: '', moods: {}, journal: [] };
+  A.moods = A.moods || {}; A.journal = A.journal || [];
+  function saveAff() { store.set('botAff', JSON.stringify(A)); }
+  function dstr(d) { return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+  function todayStr() { return dstr(new Date()); }
+  function dayIndex() { var d = new Date(); return Math.floor((d - new Date(d.getFullYear(), 0, 0)) / 864e5); }
+  function todayMood() { var m = A.moods[todayStr()]; return m == null ? null : m; }
+  function currentStyle() { var m = todayMood(); if (m != null && m <= 2) return 'gentle'; if (m != null && m >= 5) return 'hype'; return 'daily'; }
+  function affirmationFor(style, bump) {
+    var list = AFF[style] || AFF.daily, t = list[(dayIndex() + (bump || 0)) % list.length], n = userName();
+    return n && (bump || 0) % 2 === 0 ? n + ', ' + t.charAt(0).toLowerCase() + t.slice(1) : t;
+  }
+  function claimToday() {
+    var t = todayStr();
+    if (A.last === t) return false;
+    A.streak = A.last === dstr(new Date(Date.now() - 864e5)) ? A.streak + 1 : 1;
+    A.best = Math.max(A.best, A.streak); A.last = t; saveAff(); interact(0.1, 0.02);
+    failMsg('DAY ' + A.streak, 'STREAK!'); greetT = nowT;
+    return true;
+  }
+  function parseMood(l) {
+    if (/\b(low|bad|sad|down|tired|rough|terrible|awful|stressed|not (good|great|okay|ok)|anxious|lonely)\b/.test(l)) return 1;
+    if (/\b(great|good|amazing|happy|awesome|fantastic|excited|wonderful|best)\b/.test(l)) return 5;
+    if (/\b(okay|ok|fine|meh|alright|so so|normal|average)\b/.test(l)) return 3;
+    return null;
+  }
+  function recordMood(score) {
+    A.moods[todayStr()] = score; saveAff(); claimToday(); interact(score >= 4 ? 0.1 : 0, 0.02);
+    var out;
+    if (score >= 5) out = 'Love that! ' + affirmationFor('hype');
+    else if (score >= 3) out = 'Okay is okay. Here is a small boost. ' + affirmationFor('daily', 1);
+    else { gentleUntil = nowT + 90; out = 'Thank you for telling me. ' + affirmationFor('gentle', 1); }
+    var low = 0;
+    for (var i = 0; i < 3; i++) { var v = A.moods[dstr(new Date(Date.now() - i * 864e5))]; if (v != null && v <= 2) low++; }
+    if (low === 3) out += ' That is three low days in a row. Maybe talk to someone you trust about it. I am here too.';
+    return out;
+  }
+  function weekText() {
+    var vals = [];
+    for (var i = 0; i < 7; i++) { var v = A.moods[dstr(new Date(Date.now() - i * 864e5))]; if (v != null) vals.push(v); }
+    var avg = vals.length ? vals.reduce(function (a, b) { return a + b; }, 0) / vals.length : null;
+    return 'You are on a ' + A.streak + ' day streak, and your best is ' + A.best + '. ' +
+      (avg == null ? 'No mood check-ins this week yet. Say check in.' : 'This week you checked in ' + vals.length + ' times, and your average mood was ' + (avg >= 4 ? 'great' : avg >= 2.5 ? 'okay' : 'a bit low') + '.');
+  }
+
+  // ---------- daily card ----------
+  var cardBump = 0;
+  function renderDaily(text) {
+    $('dStreak').textContent = '\uD83D\uDD25 ' + A.streak + ' day streak \u00B7 best ' + A.best;
+    $('dText').textContent = text || affirmationFor(currentStyle(), cardBump);
+    var html = '';
+    for (var i = 6; i >= 0; i--) {
+      var d = new Date(Date.now() - i * 864e5), v = A.moods[dstr(d)];
+      var h = v ? 10 + v * 8 : 4, col = v >= 4 ? '#00c9ad' : v === 3 ? '#e0b341' : v ? '#e07a7a' : '#2a3b45';
+      html += '<div><i style="height:' + h + 'px;background:' + col + '"></i>' + 'SMTWTFS'.charAt(d.getDay()) + '</div>';
+    }
+    $('dChart').innerHTML = html;
+  }
+  function openDaily() { claimToday(); cardBump = 0; renderDaily(); $('daily').style.display = 'flex'; updatePulse(); }
+  function updatePulse() { $('bDaily').classList.toggle('pulse', A.last !== todayStr()); }
+  $('bDaily').onclick = function () { spokeOnce = true; unlockSpeech(); openDaily(); };
+  $('dX').onclick = function () { $('daily').style.display = 'none'; };
+  $('dSay').onclick = function () { spokeOnce = true; unlockSpeech(); say($('dText').textContent); };
+  $('dNew').onclick = function () { cardBump++; renderDaily(); };
+  Array.prototype.forEach.call(document.querySelectorAll('#dMoods button'), function (b) {
+    b.onclick = function () { spokeOnce = true; unlockSpeech(); var t = recordMood(parseInt(b.getAttribute('data-m'), 10)); renderDaily(t); say(t); updatePulse(); };
+  });
+  $('dSave').onclick = function () {
+    var v = $('dJ').value.trim(); if (!v) return;
+    A.journal.push({ d: todayStr(), t: v, k: 'journal' }); A.journal = A.journal.slice(-60); saveAff();
+    $('dJ').value = ''; interact(0.05, 0.01); failMsg('SAVED', 'PROUD OF U');
+  };
+  setInterval(updatePulse, 60000);
+  updatePulse();
+
+  // ================= HANDLE ONE USER MESSAGE =================
+  function wantsImages(l) {
+    return /\b(show me|picture|image|photo|look like|what is|what are|who is|who was|where is|tell me about|explain|how does|how do|history of|what's)\b/.test(l) &&
+           !/\b(time|date|weather|joke|riddle|remember|your name|how are you)\b/.test(l);
+  }
+  function handle(text) {
+    var q = String(text || '').trim();
+    if (!q) return;
+    var id = ++reqId, l = q.toLowerCase();
+    stopAllKeep();
+    logMsg('u', q); bubble('u', q);
+    state = 'thinking'; interact(0.01);
+    var fail = function () { if (id !== reqId) return; failMsg('NO INTERNET', 'TRY AGAIN'); reply('Sorry, I could not reach the internet.'); };
+
+    // affirmation flows (check-in answer, gratitude answer)
+    if (pendingMood) { pendingMood = false; var sc = parseMood(l); if (sc != null) { var mt = recordMood(sc); updatePulse(); return reply(mt); } }
+    if (pendingGrat) {
+      pendingGrat = false;
+      if (!/^(no|nothing|skip|cancel|nevermind)\b/.test(l)) {
+        A.journal.push({ d: todayStr(), t: q, k: 'gratitude' }); A.journal = A.journal.slice(-60); claimToday(); saveAff(); interact(0.1, 0.02); updatePulse();
+        return reply(pick(['That is lovely. Saved. Hold onto that one.', 'Good one. I wrote it down so nobody can take it back.', 'Aww. Gratitude noted, and filed under things that matter.']));
+      }
+    }
+    if (/\b(check ?in|mood check|how am i doing)\b/.test(l)) { pendingMood = true; return reply('How are you feeling today? Great, okay, or low?'); }
+    if (/\bgratitude\b/.test(l)) { pendingGrat = true; return reply('Tell me one thing you are grateful for today.'); }
+    if (/\b(my streak|my week|my progress|mood history|how is my week)\b/.test(l)) { return reply(weekText()); }
+
+    // media controls
+    if (/\b(stop|close|hide|turn off)\b.*\b(video|image|images|picture|screen|it)\b|^close$/.test(l)) { closeMedia(); return reply('Okay, closed.'); }
+    if (/\bfull ?screen\b|\bmake it (bigger|larger)\b/.test(l)) { expandMedia(); return reply('Going big.'); }
+
+    // play a video
+    var vm = l.match(/^(?:please\s+)?(?:play|watch|put on|show me a video (?:of|about)|find (?:me )?a video (?:of|about))\s+(.+)/);
+    if (vm) {
+      var vid = ytId(q);
+      var start = function (v) { if (id !== reqId) return; logHabit('video'); reply('Playing ' + (v.title || 'that') + '. Tap the full screen button if you want it big.'); playVideo(v.id); };
+      if (vid) return start({ id: vid });
+      return ytSearch(vm[1]).then(start).catch(function (e) {
+        if (id !== reqId) return;
+        reply(e.message === 'nokey' ? 'To search YouTube for you I need a free YouTube key in settings. Or tap the play button and paste a link.' : 'I could not find a video for that.');
+      });
+    }
+    if (ytId(q) && /youtu/.test(l)) { var yid = ytId(q); reply('Playing it.'); return playVideo(yid); }
+
+    // personality and small talk
+    var local = personality(q, l);
+    if (local) return reply(local);
+
+    // greetings, time, date
+    var m;
+    if (/^(hi|hello|hallo|hey|good (morning|afternoon|evening))\b/.test(l)) {
+      greetT = nowT; logHabit('chat');
+      var n = userName();
+      return reply(P.trust > 0.6 ? 'Oh, it is you again' + (n ? ', ' + n : '') + '! What are we up to?' : 'Hello' + (n ? ' ' + n : '') + '! How can I help?');
+    }
+    if (/\b(what('s| is) the time|time is it|current time)\b/.test(l)) { logHabit('time'); return reply('It is ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) + '.'); }
+    if (/\b(what('s| is) (the )?date|what day is it|today's date)\b/.test(l)) { logHabit('date'); return reply('Today is ' + new Date().toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' }) + '.'); }
+
+    // free-data features
+    if (/\bweather|temperature|forecast\b/.test(l)) { logHabit('weather'); return weather(q).then(function (t) { if (id === reqId) reply(t); }).catch(fail); }
+    if (/\bon this day|what happened today\b/.test(l)) { logHabit('fun'); return onThisDay().then(function (r) { if (id === reqId) reply(r.text, r.imgs); }).catch(fail); }
+    if (/\b(fun fact|random fact|something interesting|surprise me|tell me something)\b/.test(l)) { logHabit('fun'); return randomFact().then(function (r) { if (id === reqId) reply(r.text, r.imgs); }).catch(fail); }
+
+    // knowledge: images in parallel with the answer
+    var topic = cleanTopic(q);
+    var imgReq = wantsImages(l) && topic.length > 1 ? wikiImages(topic).catch(function () { return null; }) : null;
+    if (imgReq) imgReq.then(function (r) { if (r && id === reqId) showImages(r.urls, r.title); });
+    var onlyPictures = /^(please\s+)?(show me|show|give me)\s+(a\s+|an\s+|some\s+)?(pictures?|images?|photos?)\b/.test(l);
+    if (onlyPictures) {
+      return (imgReq || Promise.resolve(null)).then(function (r) {
+        if (id !== reqId) return;
+        reply(r ? 'Here are some pictures of ' + r.title + '.' : 'I could not find pictures of that.');
+      });
+    }
+
+    if (/\b(affirm me|affirmation|hype me|pep talk|motivate me|encourage me|boost my (mood|confidence)|i need (a )?(boost|motivation|pep talk))\b/.test(l)) {
+      var style = /\b(hype|pep talk|motivate)\b/.test(l) ? 'hype' : currentStyle();
+      var fresh = claimToday(); updatePulse();
+      if (!aiProvider()) return reply(affirmationFor(style, fresh ? 0 : Math.floor(Math.random() * 6)) + (fresh ? ' That is day ' + A.streak + ' of your streak.' : ''));
+      q = 'Give me one short, personalized ' + (style === 'hype' ? 'hype' : style === 'gentle' ? 'gentle and comforting' : 'warm and a little playful') + ' affirmation, two sentences at most.';
+    }
+    var prov = aiProvider();
+    if (prov) {
+      logHabit('ai');
+      var ctrl = new AbortController(); currentAbort = ctrl;
+      var full = '', live = null;
+      speakBegin(); state = 'thinking';
+      var onDelta = function (d) {
+        if (id !== reqId) return;
+        if (!live) { live = bubble('b', ''); state = 'speaking'; }
+        full += d; live.textContent = full; msgsEl.scrollTop = msgsEl.scrollHeight; speakFeed(d);
+      };
+      (prov === 'groq' ? streamGroq : streamGemini)(q, onDelta, ctrl.signal).then(function () {
+        if (id !== reqId) return;
+        if (!full.trim()) throw new Error('empty');
+        logMsg('b', full.trim()); speakEnd();
+      }).catch(function (e) {
+        if (id !== reqId || (e && e.name === 'AbortError')) return;
+        if (full.trim()) { logMsg('b', full.trim()); speakEnd(); return; }
+        // AI failed: fall back to Wikipedia so you still get an answer
+        wikiSummary(q).then(function (r) {
+          if (id !== reqId) return;
+          if (live) live.remove();
+          sq.done = true; sq.pending = 0;
+          reply(r.text + ' I could not reach my AI brain' + (e && e.status ? ' (error ' + e.status + ')' : '') + ', so that is from Wikipedia.', r.thumb ? { urls: [r.thumb], title: r.title } : null);
+        }).catch(fail);
+      });
+      return;
+    }
+    logHabit('knowledge');
+    wikiSummary(q).then(function (r) {
+      if (id !== reqId) return;
+      var t = r.text + (r.title && Math.random() < 0.4 && moodNow() !== 'sleepy' ? ' ' + pick(QUIPS) : '');
+      reply(t, !imgReq && r.thumb ? { urls: [r.thumb], title: r.title } : null);
+    }).catch(fail);
+  }
+  function stopAllKeep() {
+    try { window.speechSynthesis.cancel(); } catch (e) {}
+    if (currentAbort) { try { currentAbort.abort(); } catch (e) {} currentAbort = null; }
+    sq.done = true; sq.pending = 0;
+  }
+  function failMsg(a, b) { errorText = a + '|' + b; errorUntil = nowT + 2.5; }
+
+  // ================= VOICE IN =================
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  function listen() {
+    spokeOnce = true; unlockSpeech();
+    stopAllKeep();
+    if (!SR) { openChat(); return; }       // no speech recognition: use the chat box
+    try {
+      rec = new SR(); rec.lang = LANG; rec.interimResults = false; rec.maxAlternatives = 1;
+      var got = false;
+      rec.onresult = function (e) { got = true; handle(e.results[0][0].transcript); };
+      rec.onerror = function (e) {
+        if (e.error === 'not-allowed' || e.error === 'service-not-allowed') { failMsg('MIC BLOCKED', 'USE CHAT'); state = 'idle'; openChat(); }
+        else if (e.error === 'no-speech') { failMsg('DID NOT HEAR', 'TAP + SPEAK'); state = 'idle'; }
+        else state = 'idle';
+      };
+      rec.onend = function () { if (state === 'listening' && !got) state = 'idle'; };
+      rec.start(); state = 'listening';
+    } catch (e) { state = 'idle'; openChat(); }
+  }
+
+  // ================= UI WIRING =================
+  function openChat() { $('chat').style.display = 'flex'; document.body.classList.add('chatOpen'); $('bar').style.display = 'none'; msgsEl.scrollTop = msgsEl.scrollHeight; }
+  function closeChat() { $('chat').style.display = 'none'; document.body.classList.remove('chatOpen'); $('bar').style.display = 'flex'; }
+  $('bChat').onclick = function () { spokeOnce = true; unlockSpeech(); openChat(); };
+  $('chatX').onclick = closeChat;
+  $('bFull').onclick = expandMedia;
+  $('vClose').onclick = closeMedia;
+  $('vExpand').onclick = expandMedia;
+  lightbox.onclick = function () { lightbox.style.display = 'none'; };
+  $('bVideo').onclick = function () {
+    var s = window.prompt('Paste a YouTube link, or type what to play:', '');
+    if (!s) return;
+    spokeOnce = true; unlockSpeech();
+    handle(ytId(s) ? s : 'play ' + s);
+  };
+  $('chatSend').onclick = function () { var v = $('chatIn').value; $('chatIn').value = ''; spokeOnce = true; unlockSpeech(); handle(v); };
+  $('chatIn').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); $('chatSend').onclick(); } });
+  Array.prototype.forEach.call(document.querySelectorAll('.chip'), function (c) {
+    c.onclick = function () { spokeOnce = true; unlockSpeech(); handle(c.getAttribute('data-q')); };
+  });
+
+  function openSettings() {
+    $('sProv').value = store.get('botProvider') || 'gemini';
+    $('sGem').value = store.get('botKey') || ''; $('sGroq').value = store.get('groqKey') || ''; $('sYt').value = store.get('ytKey') || '';
+    $('sName').value = P.name; $('sVoice').checked = voiceOn();
+    $('settings').style.display = 'flex';
+  }
+  $('bSet').onclick = openSettings;
+  $('sTest').onclick = function () {
+    var prov = aiProvider();
+    if (!prov) { window.alert('Add a Gemini or Groq key, press Save, then test again.'); return; }
+    var out = '', c = new AbortController();
+    (prov === 'groq' ? streamGroq : streamGemini)('Say hello in five words.', function (d) { out += d; }, c.signal)
+      .then(function () { window.alert(out ? 'AI works (' + prov + '): ' + out : 'Connected, but the reply was empty.'); })
+      .catch(function (e) {
+        var st = e && e.status;
+        window.alert('AI error: ' + (st ? 'HTTP ' + st : (e && e.message)) +
+          (st === 400 || st === 401 || st === 403 ? ' (check the key)' : st === 429 ? ' (rate limit, wait a minute)' : st === 404 ? ' (model not found)' : ''));
+      });
+  };
+  $('sClose').onclick = function () { $('settings').style.display = 'none'; };
+  $('sSave').onclick = function () {
+    store.set('botProvider', $('sProv').value);
+    [['botKey', 'sGem'], ['groqKey', 'sGroq'], ['ytKey', 'sYt']].forEach(function (p) {
+      var v = $(p[1]).value.trim(); if (v) store.set(p[0], v); else store.del(p[0]);
+    });
+    var nm = $('sName').value.trim(); if (nm) P.name = nm; savePersona();
+    store.set('botVoice', $('sVoice').checked ? '1' : '0');
+    $('settings').style.display = 'none'; failMsg('SAVED', 'ASK ME');
+  };
+  $('sClear').onclick = function () {
+    if (!window.confirm('Erase everything I remember about you?')) return;
+    ['botPersona', 'botName', 'botHabits', 'botMsgs', 'botAff'].forEach(store.del);
+    A = { streak: 0, best: 0, last: '', moods: {}, journal: [] };
+    P = { name: 'Pixel', trust: 0.3, joy: 0.7, bored: 0, sass: 0.75, likes: [], facts: [], talks: 0 };
+    msgs = []; hist = []; msgsEl.innerHTML = ''; $('settings').style.display = 'none'; failMsg('MEMORY', 'CLEARED');
+  };
+
+  // ---------- touch: look at finger, tap robot = talk, hold = settings ----------
+  var touching = false, tp = { x: 0, y: 0 }, downAt = 0, downPos = null, onBot = false, moved = false, holdTimer = null;
+  var gaze = { x: 0, y: 0 }, lean = { x: 0, y: 0 }, touchT = -10;
+  var UI = '#bar,#chat,#settings,#daily,#videoBox,#lightbox';
+  window.addEventListener('pointerdown', function (e) {
+    if (e.target.closest && e.target.closest(UI)) return;
+    touching = true; tp.x = e.clientX; tp.y = e.clientY; touchT = nowT; P.bored = Math.max(0, P.bored - 0.3); lastActive = nowT;
+    downAt = Date.now(); downPos = { x: e.clientX, y: e.clientY }; moved = false;
+    onBot = !!(e.target.closest && e.target.closest('.bot-stage'));
+    if (onBot) holdTimer = setTimeout(function () { if (!moved) { holdTimer = null; touching = false; openSettings(); } }, 1000);
+  });
+  window.addEventListener('pointermove', function (e) {
+    if (!touching) return;
+    tp.x = e.clientX; tp.y = e.clientY;
+    if (downPos && Math.hypot(e.clientX - downPos.x, e.clientY - downPos.y) > 12) { moved = true; if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; } }
+  });
+  function up() {
+    if (!touching) return;
+    touching = false;
+    if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
+    if (onBot && !moved && Date.now() - downAt < 600) {
+      if (state === 'speaking' || state === 'thinking') { stopAll(); }
+      else if (state === 'listening') { try { rec && rec.stop(); } catch (e) {} }
+      else listen();
+    }
+  }
+  window.addEventListener('pointerup', up);
+  window.addEventListener('pointercancel', up);
+  document.addEventListener('touchmove', function (e) { if (!(e.target.closest && e.target.closest('#msgs,#chatTop,#settings,#daily'))) e.preventDefault(); }, { passive: false });
+  window.addEventListener('resize', function () { W = window.innerWidth; H = window.innerHeight; if (mediaMode === 'video' && !videoBox.classList.contains('full')) placeVideo(); });
+
+  // ================= MAIN LOOP =================
+  var lastOpen = -1, l1 = '', l2 = '';
+  function setLines(a, b) { if (a !== l1) { line1.textContent = a; l1 = a; } if (b !== l2) { line2.textContent = b; l2 = b; } }
+  function frame(ms) {
+    var t = nowT = ms / 1000;
+    var dt = Math.min(0.2, t - lastT); lastT = t;
+    if (state === 'idle') P.bored = Math.min(1, P.bored + dt / 150);
+    P.joy += (0.65 - P.joy) * dt * 0.01;
+    if (state === 'idle' && P.bored > 0.7 && t - lastNudge > 45 && t - lastActive > 40) {
+      lastNudge = t; greetT = t;
+      var nn = pick([['HELLO??', 'IGNORING ME?'], ['PSST...', 'TALK TO ME'], ['SO BORED...', 'SAY SOMETHING']]);
+      failMsg(nn[0], nn[1]);
+      if (spokeOnce && voiceOn()) say(pick(['Hello? Are you ignoring me?', 'Psst. I am bored. Say something.']));
+    }
+
+    // gaze
+    var tx = 0, ty = 0, lx = 0, ly = 0;
+    if (touching) {
+      var fr = face.getBoundingClientRect(), fx = fr.left + fr.width / 2, fy = fr.top + fr.height / 2;
+      tx = clamp((tp.x - fx) / (W / 2), -1, 1) * 9; ty = clamp((tp.y - fy) / (H / 2), -1, 1) * 6;
+      lx = (tp.x - fx) / W; ly = (tp.y - fy) / H;
+    }
+    gaze.x += (tx - gaze.x) * 0.2; gaze.y += (ty - gaze.y) * 0.2;
+    lean.x += (lx - lean.x) * 0.12; lean.y += (ly - lean.y) * 0.12;
+
+    var b = blink(t), tb = t - touchT;
+    if (tb > 0 && tb < 0.22) b = Math.max(b, Math.sin(Math.PI * tb / 0.22));
+    var open = b > 0.85 ? 0.15 : b > 0.55 ? 0.4 : b > 0.25 ? 0.75 : 1;
+    if (state === 'listening') open = 1.18;
+
+    var gt = t - greetT, hop = 0, wave = false;
+    if (gt >= 0 && gt < 3) { hop = -Math.abs(Math.sin(gt * 9)) * 14 * Math.max(0, 1 - gt / 1.6); wave = true; }
+
+    // screen: image mode shows pictures, otherwise text + face
+    if (mediaMode === 'image' && state === 'idle' && t > mediaUntil) closeMedia();
+    if (mediaMode === 'image' && state === 'speaking') mediaUntil = t + 14;
+    var showMedia = mediaMode === 'image', showFace = !showMedia && mediaMode !== 'video';
+    textGroup.style.display = showFace ? '' : 'none'; face.style.display = showFace ? '' : 'none';
+
+    var dots = '.'.repeat(1 + Math.floor(t * 3) % 3);
+    if (errorUntil > t && state !== 'speaking') { var e = errorText.split('|'); setLines(e[0], e[1]); }
+    else if (state === 'listening') setLines('LISTENING', dots);
+    else if (state === 'thinking') setLines('THINKING', dots);
+    else if (state === 'speaking') {
+      var s = (spoken.toUpperCase() + '   '), pos = Math.floor((t - speakStart) * 8) % s.length;
+      setLines('SPEAKING', (s + s).substr(pos, 11));
+    } else if (A.last !== todayStr()) { setLines('DAILY GLOW', Math.floor(t / 3) % 2 ? 'TAP THE STAR' : 'READY!'); }
+    else { var p = predicted(); setLines('SUCCESSFUL', p ? 'ASK ' + p.toUpperCase() + '?' : 'CODE DEPLOY'); }
+
+    var mood = moodNow(), talk = state === 'speaking' && Math.floor(t * 6) % 2 === 0;
+    var fk = mood + (talk ? 't' : 'b');
+    if (fk !== faceKey) { eyes.innerHTML = FACES[mood].e; smile.innerHTML = talk ? TALK_HTML : FACES[mood].m; faceKey = fk; }
+
+    eyes.setAttribute('transform', 'translate(' + gaze.x.toFixed(1) + ' ' + gaze.y.toFixed(1) + ') translate(322 237) scale(1 ' + open + ') translate(-322 -237)');
+    smile.setAttribute('transform', 'translate(' + (gaze.x * 0.5).toFixed(1) + ' ' + (gaze.y * 0.5).toFixed(1) + ')');
+    armR.setAttribute('transform', 'rotate(' + (wave ? -85 + Math.sin(gt * 13) * 12 : 0).toFixed(1) + ' 390 398)');
+
+    if (mediaMode === 'video') { cam.style.transform = 'none'; }
+    else {
+      var c = camAt(t), z = 1 + (c[0] - 1) * 0.45, k = W / 234;
+      var perk = tb > 0 && tb < 0.3 ? 1 + 0.05 * Math.sin(Math.PI * tb / 0.3) : 1;
+      cam.style.transform =
+        'translate(' + (c[2] * k * 0.15 + lean.x * 18).toFixed(1) + 'px,' + (c[3] * k * 0.15 + lean.y * 10 + hop).toFixed(1) + 'px) ' +
+        'rotate(' + (c[1] * 0.5 + lean.x * 5).toFixed(2) + 'deg) scale(' + (z * perk).toFixed(3) + ')';
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+  window.__handle = handle;
+})();
+</script>
+</body>
+</html>
